@@ -142,33 +142,6 @@ echo "Pip 版本: $(pip3 --version)"
 echo "已安装的包:"
 pip3 list
 
-# 创建自动化测试脚本
-cat > test_environment.py << 'EOL'
-import sys
-import tkinter
-import selenium
-import pyautogui
-
-def test_imports():
-    modules = {
-        'tkinter': tkinter,
-        'selenium': selenium,
-        'pyautogui': pyautogui
-    }
-    
-    print("Python 版本:", sys.version)
-    print("\n已安装模块:")
-    for name, module in modules.items():
-        print(f"{name}: {module.__version__ if hasattr(module, '__version__') else '已安装'}")
-
-if __name__ == "__main__":
-    test_imports()
-EOL
-
-# 运行测试
-echo "运行环境测试..."
-python3 test_environment.py
-
 echo "${GREEN}安装完成！${NC}"
 echo "使用说明:"
 echo "1. 直接运行 ./run_trader.sh 即可启动程序"
@@ -178,4 +151,83 @@ echo "3. 所有配置已自动完成，无需手动操作"
 # 自动清理安装缓存
 brew cleanup -s
 pip3 cache purge
-rm -rf test_environment.py
+
+# 添加安装检查
+echo "\n${GREEN}===== 安装检查 =====${NC}"
+echo "检查关键组件是否正确安装..."
+
+# 初始化错误计数和错误列表
+ERROR_COUNT=0
+ERROR_LIST=""
+
+# 检查 Homebrew
+if ! command -v brew &> /dev/null; then
+    ERROR_COUNT=$((ERROR_COUNT+1))
+    ERROR_LIST="${ERROR_LIST}\n${RED}[未安装] Homebrew${NC} - 请运行: /bin/bash -c \"\$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)\""
+fi
+
+# 检查 Python 3.9
+if ! command -v python3.9 &> /dev/null; then
+    ERROR_COUNT=$((ERROR_COUNT+1))
+    ERROR_LIST="${ERROR_LIST}\n${RED}[未安装] Python 3.9${NC} - 请运行: brew install python@3.9 --force && brew link --force --overwrite python@3.9"
+fi
+
+# 检查 pip3
+if ! command -v pip3 &> /dev/null; then
+    ERROR_COUNT=$((ERROR_COUNT+1))
+    ERROR_LIST="${ERROR_LIST}\n${RED}[未安装] pip3${NC} - 请运行: python3.9 -m pip install --upgrade pip"
+fi
+
+# 检查 Chrome
+if [ ! -d "/Applications/Google Chrome.app" ]; then
+    ERROR_COUNT=$((ERROR_COUNT+1))
+    ERROR_LIST="${ERROR_LIST}\n${RED}[未安装] Google Chrome${NC} - 请运行: brew install --cask google-chrome --force"
+fi
+
+# 检查 ChromeDriver
+if ! command -v chromedriver &> /dev/null; then
+    ERROR_COUNT=$((ERROR_COUNT+1))
+    ERROR_LIST="${ERROR_LIST}\n${RED}[未安装] ChromeDriver${NC} - 请运行: brew install chromedriver --force"
+fi
+
+# 检查 python-tk@3.9
+if ! brew list python-tk@3.9 &> /dev/null; then
+    ERROR_COUNT=$((ERROR_COUNT+1))
+    ERROR_LIST="${ERROR_LIST}\n${RED}[未安装] python-tk@3.9${NC} - 请运行: brew install python-tk@3.9 --force"
+fi
+
+# 检查关键Python包
+PACKAGES=("selenium" "pyautogui" "screeninfo" "requests")
+for pkg in "${PACKAGES[@]}"; do
+    if ! pip3 list | grep -i "$pkg" &> /dev/null; then
+        ERROR_COUNT=$((ERROR_COUNT+1))
+        ERROR_LIST="${ERROR_LIST}\n${RED}[未安装] Python包: $pkg${NC} - 请运行: pip3 install --no-cache-dir $pkg"
+    fi
+done
+
+# 检查虚拟环境
+if [ ! -d "venv" ]; then
+    ERROR_COUNT=$((ERROR_COUNT+1))
+    ERROR_LIST="${ERROR_LIST}\n${RED}[未创建] Python虚拟环境${NC} - 请运行: python3.9 -m venv venv --clear"
+fi
+
+# 检查环境变量配置
+if ! grep -q "# Python 配置" ~/.zshrc; then
+    ERROR_COUNT=$((ERROR_COUNT+1))
+    ERROR_LIST="${ERROR_LIST}\n${RED}[未配置] Python环境变量${NC} - 请检查 ~/.zshrc 文件中的 Python 配置"
+fi
+
+# 检查启动脚本权限
+if [ ! -x "run_trader.sh" ]; then
+    ERROR_COUNT=$((ERROR_COUNT+1))
+    ERROR_LIST="${ERROR_LIST}\n${RED}[未设置] run_trader.sh 执行权限${NC} - 请运行: chmod +x run_trader.sh"
+fi
+
+# 输出检查结果
+if [ $ERROR_COUNT -eq 0 ]; then
+    echo "${GREEN}所有组件已成功安装!${NC}"
+else
+    echo "${RED}检测到 $ERROR_COUNT 个安装问题:${NC}"
+    echo -e "$ERROR_LIST"
+    echo "\n您可以单独安装上述未成功安装的组件,无需重新运行整个脚本。"
+fi

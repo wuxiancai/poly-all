@@ -831,13 +831,14 @@ class CryptoTrader:
                 chrome_options.add_argument('--no-sandbox')
                 chrome_options.add_argument('--disable-dev-shm-usage')
 
-                if platform.system() == 'Darwin':  # macOS
-                    self.driver = webdriver.Chrome(options=chrome_options)
-
-                elif platform.system() == 'Linux':  # Linux (Ubuntu)
+                system = platform.system()
+                if system == 'Darwin':  # macOS
+                    pass
+                elif system == 'Linux':  # Linux (Ubuntu)
                     chrome_options.add_argument('--disable-gpu')
                     chrome_options.add_argument('--disable-software-rasterizer')
-                    self.driver = webdriver.Chrome(options=chrome_options)
+
+                self.driver = webdriver.Chrome(options=chrome_options)
             try:
                 # 在当前标签页打开URL
                 self.driver.get(new_url)
@@ -963,13 +964,15 @@ class CryptoTrader:
                     chrome_options.debugger_address = "127.0.0.1:9222"
                     chrome_options.add_argument('--no-sandbox')
                     chrome_options.add_argument('--disable-dev-shm-usage')
-                    
-                    if platform.system() == 'Darwin':  # macOS
-                        self.driver = webdriver.Chrome(options=chrome_options)
-                    elif platform.system() == 'Linux':  # Linux (Ubuntu)
+
+                    system = platform.system()
+                    if system == 'Darwin':  # macOS
+                        pass
+                    elif system == 'Linux':  # Linux (Ubuntu)
                         chrome_options.add_argument('--disable-gpu')
                         chrome_options.add_argument('--disable-software-rasterizer')
-                        self.driver = webdriver.Chrome(options=chrome_options)
+
+                    self.driver = webdriver.Chrome(options=chrome_options)
 
                     # 验证连接
                     self.driver.get('chrome://version/')  # 测试连接
