@@ -142,7 +142,8 @@ class XPathConfig:
 
     # 22.定位 SPREAD 的 XPATH
     SPREAD = [
-        '(//span[@class="c-ggujGL"])[2]'
+        '(//span[@class="c-ggujGL"])[2]',
+        '//span[contains(text(), "Spread") or contains(text(), "spread")]'
     ]
 
     # 23.搜索框长期有效
