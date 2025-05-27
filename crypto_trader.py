@@ -346,8 +346,8 @@ class CryptoTrader:
             style.configure('Red.TLabelframe.Label', foreground='red')
             style.configure('Black.TLabel', foreground='black', font=default_font)
             style.configure('Warning.TLabelframe.Label', font=default_font, foreground='red', anchor='center', justify='center')
-            style.configure('LeftAligned.TButton', anchor='w', foreground='black', padding=(1, 1))
-            
+        style.configure('LeftAligned.TButton', anchor='w', foreground='black', padding=(1, 1))
+        
         # 金额设置框架
         amount_settings_frame = ttk.LabelFrame(scrollable_frame, text="Don't greedy! Do not intervene in the Automatic program!", padding=(2, 5), style='Warning.TLabelframe')
         amount_settings_frame.pack(fill="x", padx=5, pady=5)
@@ -413,7 +413,7 @@ class CryptoTrader:
         """设置窗口大小和位置"""
         if platform.system() == 'Linux':
             window_width = 550
-        window_width = 460    
+        window_width = 460
         window_height = 800
         screen_width = self.root.winfo_screenwidth()
         screen_height = self.root.winfo_screenheight()
@@ -523,7 +523,7 @@ class CryptoTrader:
         self.binance_rate_label = ttk.Label(binance_frame, text="--", 
                                         font=('Arial', 16), foreground='blue')
         self.binance_rate_label.pack(side=tk.LEFT, padx=2)
-
+        
         # 修改实时价格显示区域
         price_frame = ttk.Frame(scrollable_frame)
         price_frame.pack(padx=5, pady=5, fill="x")
@@ -832,7 +832,7 @@ class CryptoTrader:
                 chrome_options.debugger_address = "127.0.0.1:9222"
                 chrome_options.add_argument('--no-sandbox')
                 chrome_options.add_argument('--disable-dev-shm-usage')
-
+                
                 system = platform.system()
                 if system == 'Darwin':  # macOS
                     pass
@@ -949,7 +949,7 @@ class CryptoTrader:
                 script_path = os.path.abspath('start_chrome_macos.sh')
             else:  # Linux (Ubuntu)
                 script_path = os.path.abspath('start_chrome_ubuntu.sh')
-            # 直接在当前进程中执行脚本，而不是打开新终端
+           # 直接在当前进程中执行脚本，而不是打开新终端
             try:
                 # 使用subprocess直接执行脚本，不打开新终端
                 subprocess.run(['bash', script_path], check=True)
@@ -975,7 +975,7 @@ class CryptoTrader:
                         chrome_options.add_argument('--disable-software-rasterizer')
 
                     self.driver = webdriver.Chrome(options=chrome_options)
-
+                    
                     # 验证连接
                     self.driver.get('chrome://version/')  # 测试连接
                     WebDriverWait(self.driver, 10).until(
@@ -1128,69 +1128,48 @@ class CryptoTrader:
 
     def check_prices(self):
         """检查价格变化"""
+        # 检查浏览器连接
+        if not self._is_browser_alive():
+            self._reconnect_browser()
+
+        if not self.driver:
+            self.restart_browser()
+ 
         try:
-            # 检查浏览器连接
-            if not self._is_browser_alive():
-                self._reconnect_browser()
+            """buy_up_price就是yes price, buy_down_price就是no price"""
+            # up = above = asks, down = below = bids
+            above_price, below_price, asks_shares, bids_shares = self.get_nearby_cents()
 
-            if not self.driver:
-                self.restart_browser()
-            # 添加URL检查
-            target_url = self.url_entry.get()
-            current_url = self.driver.current_url
-
-            if target_url != current_url:
-                self.logger.warning(f"检测到URL变化,正在返回监控地址: {target_url}")
-                self.driver.get(target_url)
-                # 等待页面完全加载
-                WebDriverWait(self.driver, 10).until(
-                    lambda driver: driver.execute_script('return document.readyState') == 'complete'
-                )
-                      
-            try:
-                """buy_up_price就是yes price, buy_down_price就是no price"""
-                # up = above = asks, down = below = bids
-                above_price, below_price, asks_shares, bids_shares = self.get_nearby_cents()
-
-                if above_price is not None and below_price is not None:
-                    try:
-                        up_price = float(above_price)
-                        down_price = 100 - float(below_price)
-                        up_shares = float(asks_shares)
-                        down_shares = float(bids_shares)
-                        
-                        # 更新价格显示
-                        self.yes_price_label.config(
-                            text=f"Up: {up_price:.1f}¢"
-                        )
-                        self.no_price_label.config(
-                            text=f"Down: {down_price:.1f}¢"
-                        )
-                        self.up_shares_label.config(
-                            text=f"Up Shares: {up_shares:.2f}"
-                        )
-                        self.down_shares_label.config(
-                            text=f"Down Shares: {down_shares:.2f}"
-                        )
-                       
-                        # 执行所有交易检查函数
-                        self.First_trade()
-                        self.Second_trade()
-                        self.Third_trade()
-                        self.Forth_trade()
-                        self.Sell_yes()
-                        self.Sell_no() 
-                    except ValueError as e:
-                        self.logger.error(f"价格计算错误: {ValueError}")      
-                else:
-                    self.yes_price_label.config(text="Up: Fail", foreground='red')
-                    self.no_price_label.config(text="Down: Fail", foreground='red')  
-            except Exception as e:
-                self.yes_price_label.config(text="Up: Fail", foreground='red')
-                self.no_price_label.config(text="Down: Fail", foreground='red')
-                #self.root.after(3000, self.check_prices)
+            if above_price is not None and below_price is not None:
+                up_price = float(above_price)
+                down_price = 100 - float(below_price)
+                up_shares = float(asks_shares)
+                down_shares = float(bids_shares)
+                
+                # 更新价格显示
+                self.yes_price_label.config(text=f"Up: {up_price:.1f}¢")
+                self.no_price_label.config(text=f"Down: {down_price:.1f}¢")
+                self.up_shares_label.config(text=f"Up Shares: {up_shares:.2f}")
+                self.down_shares_label.config(text=f"Down Shares: {down_shares:.2f}")
+                
+                # 执行所有交易检查函数
+                self.First_trade()
+                self.Second_trade()
+                self.Third_trade()
+                self.Forth_trade()
+                self.Sell_yes()
+                self.Sell_no() 
+            else:
+                self.yes_price_label.config(text="Up: N/A")
+                self.no_price_label.config(text="Down: N/A")
+                self.up_shares_label.config(text="Up Shares: N/A")
+                self.down_shares_label.config(text="Down Shares: N/A")
+                
         except Exception as e:
-            self.logger.error(f"检查价格主流程失败: {str(e)}")
+            self.yes_price_label.config(text="Up: Fail")
+            self.no_price_label.config(text="Down: Fail")
+            self.up_shares_label.config(text="Up Shares: Fail")
+            self.down_shares_label.config(text="Down Shares: Fail")
             time.sleep(1)
             
     def check_balance(self):
@@ -2293,7 +2272,7 @@ class CryptoTrader:
                 no5_price = int(self.no5_price_entry.get())
                 self.trading = True  # 开始交易
                 price_diff = round(100 - asks_price - no5_price, 2)
-
+            
                 # 检查No5价格匹配
                 if no5_price <= 47 and (0 <= price_diff <= 1.1) and (bids_shares > self.bids_shares):
                     self.logger.info(f"Down 5: {100 - asks_price}¢ 价格匹配,执行自动卖出")
@@ -2684,7 +2663,7 @@ class CryptoTrader:
             return True
         else:
             self.logger.info("\033[31m❌ 不存在 ACCEPT 按钮\033[0m")
-            return False  
+            return False
     """以上代码是交易主体函数 1-4,从第 1370 行到第 2418行"""
 
     """以下代码是交易过程中的各种点击方法函数，涉及到按钮的点击，从第 2419 行到第 2528 行"""
@@ -3560,7 +3539,7 @@ class CryptoTrader:
         except Exception as e:
             self.logger.error(f"查找并点击今天日期卡片失败: {str(e)}")
             self.click_today_card()
-    
+
     def get_zero_time_cash(self):
         """获取币安BTC实时价格,并在中国时区00:00触发"""
         try:
@@ -3620,7 +3599,7 @@ class CryptoTrader:
                 return price
             else:
                 self.get_binance_zero_time_price()
-
+            
         except Exception as e:
             self.get_binance_zero_time_price()
 
@@ -3714,18 +3693,17 @@ class CryptoTrader:
             next_run_time = target_time_today + timedelta(days=1)
 
         seconds_until_next_run = (next_run_time - now).total_seconds()
-        # 取消已有的定时器（如果存在）
+            # 取消已有的定时器（如果存在）
         if hasattr(self, 'comparison_binance_pric') and self.comparison_binance_timer:
             self.comparison_binance_timer.cancel()
 
-        # 设置下一次执行的定时器
-        if self.running and not self.stop_event.is_set():
-            self.comparison_binance_timer = threading.Timer(seconds_until_next_run, self._perform_price_comparison)
-            self.comparison_binance_timer.daemon = True
-            self.comparison_binance_timer.start()
-            self.logger.info(f"\033[34m{round(seconds_until_next_run / 3600,2)}\033[0m小时后比较\033[34m{self.selected_coin}USDT\033[0m币安价格")
+            # 设置下一次执行的定时器
+            if self.running and not self.stop_event.is_set():
+                self.comparison_binance_timer = threading.Timer(seconds_until_next_run, self._perform_price_comparison)
+                self.comparison_binance_timer.daemon = True
+                self.comparison_binance_timer.start()
+                self.logger.info(f"\033[34m{round(seconds_until_next_run / 3600,2)}\033[0m小时后比较\033[34m{self.selected_coin}USDT\033[0m币安价格")
 
-    
 if __name__ == "__main__":
     try:
         # 打印启动参数，用于调试
