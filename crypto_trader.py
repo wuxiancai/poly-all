@@ -1031,100 +1031,89 @@ class CryptoTrader:
     
     def get_nearby_cents(self, retry_times=2):
         """获取spread附近的价格数字"""
-        for attempt in range(retry_times):
-            try:
-                # 定位 Spread 元素
-                try:
-                    keyword_element = self.driver.find_element(By.XPATH, XPathConfig.SPREAD[0])
-                    container = keyword_element.find_element(By.XPATH, './ancestor::div[3]') # 必须是 3 层 DIV
-                except NoSuchElementException:
-                    # 如果找不到元素，静默处理，不记录错误日志
-                    time.sleep(1)
-                    continue
-                # 取兄弟节点
-                above_elements = self.driver.execute_script(
-                    'let e=arguments[0],r=[];while(e=e.previousElementSibling)r.push(e);return r;', container)
-                below_elements = self.driver.execute_script(
-                    'let e=arguments[0],r=[];while(e=e.nextElementSibling)r.push(e);return r;', container)
+        # 定位 Spread 元素
+        try:
+            keyword_element = self.driver.find_element(By.XPATH, XPathConfig.SPREAD[0])
+            container = keyword_element.find_element(By.XPATH, './ancestor::div[3]') # 必须是 3 层 DIV
+            if keyword_element is None:
+                self.logger.warning("通过find_element获取SPREAD元素失败")
                 
-                # 提取上方的元素文本
-                above_element_texts = []
-                for el in above_elements: 
-                    above_element_text = el.text.strip()
-                    above_element_texts.append(above_element_text)
+        except NoSuchElementException:
+            keyword_element = self._find_element_with_retry(XPathConfig.SPREAD, timeout=3, silent=True)
+            container = keyword_element.find_element(By.XPATH, './ancestor::div[3]') # 必须是 3 层 DIV
+            if keyword_element is None:
+                self.logger.warning("通过find_element_with_retry获取SPREAD元素失败")
                 
-                # 提取下方的元素文本
-                below_element_texts = []
-                for el in below_elements:
-                    below_element_text = el.text.strip()
-                    below_element_texts.append(below_element_text)
-                
-                # 根据规律直接获取对应位置的值
-                up_price = 0
-                asks_shares = None
-                down_price = 0
-                bids_shares = None
-                
-                # 确保above_element_texts至少有4个元素
-                if len(above_element_texts) >= 4:
-                    # 提取第4个元素中的价格
-                    if '¢' in above_element_texts[3]:
-                        price_match = re.search(r'(\d+\.?\d*)¢', above_element_texts[3])
-                        if price_match:
-                            up_price = price_match.group(1)
-                            #self.logger.info(f"\033[34m✅ 成功获取up_price: {up_price}\033[0m")
-                    # 提取第3个元素作为asks_shares
-                    if re.match(r'^\d+\.?\d*$', above_element_texts[2]):
-                        asks_shares = above_element_texts[2]
-                    elif re.search(r'(\d+\.?\d+)', above_element_texts[2]):
-                        shares_match = re.search(r'(\d+[,\.]?\d*)', above_element_texts[2])
-                        if shares_match:
-                            asks_shares = shares_match.group(1)
-                
-                # 确保below_element_texts至少有5个元素
-                if len(below_element_texts) >= 5:
-                    # 提取第4个元素中的价格
-                    if '¢' in below_element_texts[3]:
-                        price_match = re.search(r'(\d+\.?\d*)¢', below_element_texts[3])
-                        if price_match:
-                            down_price = price_match.group(1)
-                            #self.logger.info(f"\033[34m✅ 成功获取down_price: {down_price}\033[0m")
-                    # 提取第5个元素作为bids_shares
-                    if re.match(r'^\d+\.?\d*$', below_element_texts[4]):
-                        bids_shares = below_element_texts[4]
-                    elif re.search(r'(\d+\.?\d+)', below_element_texts[4]):
-                        shares_match = re.search(r'(\d+[,\.]?\d*)', below_element_texts[4])
-                        if shares_match:
-                            bids_shares = shares_match.group(1)
-                try:
-                    asks_float = round(float(up_price), 2)
-                    bids_float = round(float(down_price), 2)
-                    
-                    # 确保shares值是浮点数
-                    if asks_shares is not None:
-                        asks_shares = float(asks_shares.replace(',', ''))
-                    
-                    if bids_shares is not None:
-                        bids_shares = float(bids_shares.replace(',', ''))
-                    
-                    # self.logger.info(f"asks_shares:{asks_shares}, bids_shares:{bids_shares}")
-                    return asks_float, bids_float, asks_shares, bids_shares
-                
-                except ValueError as e:
-                    self.logger.warning(f"价格转换错误: {e}")
-                    continue
-                
-            except StaleElementReferenceException:
-                time.sleep(1)  # 稍等一下再试
-                continue
-            except Exception as e:
-                self.logger.logger.info(f"SPREAD其他异常,2秒后重试,忽略")
-                time.sleep(2)
-                if attempt < retry_times - 1:
-                    time.sleep(2)
-                    continue            
-                break
-        return None, None, None, None
+
+        # 取兄弟节点
+        above_elements = self.driver.execute_script(
+            'let e=arguments[0],r=[];while(e=e.previousElementSibling)r.push(e);return r;', container)
+        below_elements = self.driver.execute_script(
+            'let e=arguments[0],r=[];while(e=e.nextElementSibling)r.push(e);return r;', container)
+        
+        # 根据规律直接获取对应位置的值
+        up_price = 0
+        asks_shares = None
+        down_price = 0
+        bids_shares = None
+
+        try:
+            # 提取上方的元素文本
+            above_element_texts = []
+            for el in above_elements: 
+                above_element_text = el.text.strip()
+                above_element_texts.append(above_element_text)
+            
+            # 提取下方的元素文本
+            below_element_texts = []
+            for el in below_elements:
+                below_element_text = el.text.strip()
+                below_element_texts.append(below_element_text)
+        except Exception as e:
+            self.logger.warning(f"获取ASK/BID价格失败")
+            
+        try:
+            # 确保above_element_texts至少有4个元素
+            if len(above_element_texts) >= 4:
+                # 提取第4个元素中的价格
+                if '¢' in above_element_texts[3]:
+                    price_match = re.search(r'(\d+\.?\d*)¢', above_element_texts[3])
+                    if price_match:
+                        up_price = price_match.group(1)
+                        
+                # 提取第3个元素作为asks_shares
+                if re.match(r'^\d+\.?\d*$', above_element_texts[2]):
+                    asks_shares = above_element_texts[2]
+                elif re.search(r'(\d+\.?\d+)', above_element_texts[2]):
+                    shares_match = re.search(r'(\d+[,\.]?\d*)', above_element_texts[2])
+                    if shares_match:
+                        asks_shares = shares_match.group(1)
+            
+            # 确保below_element_texts至少有5个元素
+            if len(below_element_texts) >= 5:
+                # 提取第4个元素中的价格
+                if '¢' in below_element_texts[3]:
+                    price_match = re.search(r'(\d+\.?\d*)¢', below_element_texts[3])
+                    if price_match:
+                        down_price = price_match.group(1)
+                       
+                # 提取第5个元素作为bids_shares
+                if re.match(r'^\d+\.?\d*$', below_element_texts[4]):
+                    bids_shares = below_element_texts[4]
+                elif re.search(r'(\d+\.?\d+)', below_element_texts[4]):
+                    shares_match = re.search(r'(\d+[,\.]?\d*)', below_element_texts[4])
+                    if shares_match:
+                        bids_shares = shares_match.group(1)
+        except Exception as e:
+            self.logger.warning(f"asks/bids集合里没有数字")
+            
+        asks_price = round(float(up_price), 2)
+        bids_price = round(float(down_price), 2)
+        
+        asks_shares = float(asks_shares.replace(',', ''))
+        bids_shares = float(bids_shares.replace(',', ''))
+        
+        return asks_price, bids_price, asks_shares, bids_shares
 
     def check_prices(self):
         """检查价格变化"""
@@ -1174,52 +1163,34 @@ class CryptoTrader:
             
     def check_balance(self):
         """获取Portfolio和Cash值"""
+        if not self.driver:
+            self.restart_browser()
+
+        # 等待页面完全加载
+        WebDriverWait(self.driver, 10).until(
+            lambda driver: driver.execute_script('return document.readyState') == 'complete'
+        )
+        
         try:
-            if not self.driver:
-                self.restart_browser()
-
-            # 等待页面完全加载
-            WebDriverWait(self.driver, 10).until(
-                lambda driver: driver.execute_script('return document.readyState') == 'complete'
-            )
-            
+            # 取Portfolio值和Cash值
             try:
-                # 取Portfolio值
-                try:
-                    portfolio_element = self.driver.find_element(By.XPATH, XPathConfig.PORTFOLIO_VALUE[0])
-                    self.portfolio_value = portfolio_element.text
-                    
-                except NoSuchElementException:
-                    portfolio_element = self._find_element_with_retry(XPathConfig.PORTFOLIO_VALUE, timeout=3, silent=True)
-                    self.portfolio_value = portfolio_element.text
-            
-                # 获取Cash值
-                try:
-                    cash_element = self.driver.find_element(By.XPATH, XPathConfig.CASH_VALUE[0])
-                    self.cash_value = cash_element.text
-                except NoSuchElementException:
-                    cash_element = self._find_element_with_retry(XPathConfig.CASH_VALUE, timeout=3, silent=True)
-                    self.cash_value = cash_element.text
-                    
-                # 更新Portfolio和Cash显示
-                self.portfolio_label.config(text=f"Portfolio: {self.portfolio_value}")
-                self.cash_label.config(text=f"Cash: {self.cash_value}")
+                portfolio_element = self.driver.find_element(By.XPATH, XPathConfig.PORTFOLIO_VALUE[0])
+                cash_element = self.driver.find_element(By.XPATH, XPathConfig.CASH_VALUE[0])
+                self.cash_value = cash_element.text
+                self.portfolio_value = portfolio_element.text
+            except NoSuchElementException:
+                portfolio_element = self._find_element_with_retry(XPathConfig.PORTFOLIO_VALUE, timeout=3, silent=True)
+                cash_element = self._find_element_with_retry(XPathConfig.CASH_VALUE, timeout=3, silent=True)
+                self.cash_value = cash_element.text
+                self.portfolio_value = portfolio_element.text
+        
+            # 更新Portfolio和Cash显示
+            self.portfolio_label.config(text=f"Portfolio: {self.portfolio_value}")
+            self.cash_label.config(text=f"Cash: {self.cash_value}")
 
-                # 新增触发条件：首次获取到Cash值时安排设置金额
-                if not hasattr(self, 'cash_initialized'):
-                    self.cash_initialized = True
-                    self.root.after(2000, self.schedule_update_amount)  # 延迟2秒确保数据稳定
-
-            except Exception as e:
-                self.logger.info(f"获取资金信息失败: {str(e)}")
-                self.portfolio_label.config(text="Portfolio: Fail")
-                self.cash_label.config(text="Cash: Fail")
-                self.driver.refresh()
-                #self.root.after(3000, self.check_balance)
-                
         except Exception as e:
-            self.logger.error(f"检查资金失败: {str(e)}")
-            time.sleep(1)   
+            self.portfolio_label.config(text="Portfolio: Fail")
+            self.cash_label.config(text="Cash: Fail")
              
     """以上代码执行了监控价格和获取 CASH 的值。从这里开始程序返回到第 740 行"""  
 
@@ -1275,10 +1246,6 @@ class CryptoTrader:
 
     def set_yes_no_cash(self):
         """设置 Yes/No 各级金额"""
-        if not hasattr(self, 'cash_initialized'):
-            self.logger.warning("Cash数据尚未就绪,延迟设置金额")
-            self.root.after(2000, self.set_yes_no_cash)
-            return
         try:
             #设置重试参数
             max_retry = 15
@@ -3560,15 +3527,17 @@ class CryptoTrader:
             # 移除逗号并转换为浮点数
             self.zero_time_cash_value = round(float(cash_match.group(1).replace(',', '')), 2)
             self.zero_time_cash_label.config(text=f"{self.zero_time_cash_value}")
-            
             self.logger.info(f"✅ 获取到原始CASH值:\033[34m${self.zero_time_cash_value}\033[0m")
 
+            # 设置 YES/NO 金额,延迟2秒确保数据稳定
+            self.root.after(2000, self.schedule_update_amount)
+            self.logger.info("✅ 设置 YES/NO 金额成功!")
         except Exception as e:
             self.get_zero_time_cash()
         finally:
-            # 计算下一个00:00的时间
+            # 计算下一个00:10的时间
             now = datetime.now()
-            tomorrow = now.replace(hour=0, minute=0, second=0, microsecond=0) + timedelta(days=1)
+            tomorrow = now.replace(hour=0, minute=10, second=0, microsecond=0) + timedelta(days=1)
             seconds_until_midnight = (tomorrow - now).total_seconds()
 
             # 取消已有的定时器（如果存在）
