@@ -1593,6 +1593,33 @@ class CryptoTrader:
             self.logger.info("没有检测到ACCEPT弹窗")
             return False
     
+    def click_accept(self):
+        """点击ACCEPT按钮"""
+        try:
+            screen_width, screen_height = pyautogui.size()
+            
+            target_x = 0
+            target_y = 0
+
+            if platform.system() == "Linux": # 分辨率 2560x1600
+                # Linux 系统下的特定坐标
+                target_x = screen_width - 600
+                target_y = 950
+                
+            else:
+                # 其他操作系统的默认坐标分辨率 1920x1080
+                target_x = screen_width - 600
+                target_y = 780
+                
+            # 移动鼠标到目标位置并点击
+            pyautogui.moveTo(target_x, target_y, duration=0.2) # 可选，平滑移动
+            pyautogui.click(target_x, target_y)
+            
+            self.logger.info(f"✅ 已在坐标 (X={target_x}, Y={target_y}) 执行点击操作")
+
+        except Exception as e:
+            self.logger.error(f"执行 click_accept 点击操作失败: {str(e)}")
+
     def First_trade(self):
         """第一次交易价格设置为 0.52 买入"""
         try:
@@ -1617,8 +1644,8 @@ class CryptoTrader:
                         if self.is_buy_accept():
                             # 点击 "Accept" 按钮
                             time.sleep(0.5)
-                            pyautogui.press('enter')
-                            self.logger.info("\033[34m✅ 点击 ENTER 完成\033[0m")
+                            self.click_accept()
+                            
                             time.sleep(0.5)
                             self.buy_confirm_button.invoke()
                             
@@ -1680,9 +1707,9 @@ class CryptoTrader:
                         if self.is_buy_accept():
                             # 点击 "Accept" 按钮
                             time.sleep(0.5)
-                            pyautogui.press('enter')
+                            self.click_accept()
                             time.sleep(0.5)
-                            self.logger.info("\033[34m✅ 点击 ENTER 完成\033[0m")
+                            
                             time.sleep(0.5)
                             self.buy_confirm_button.invoke()
 
@@ -1761,9 +1788,8 @@ class CryptoTrader:
                         if self.is_buy_accept():
                             # 点击 "Accept" 按钮
                             time.sleep(0.5)
-                            pyautogui.press('enter')
+                            self.click_accept()
                             
-                            self.logger.info("\033[34m✅ 点击 ENTER 完成\033[0m")
                             time.sleep(0.5)
                             self.buy_confirm_button.invoke()
                         time.sleep(2)
@@ -1814,10 +1840,10 @@ class CryptoTrader:
                         if self.is_buy_accept():
                             # 点击 "Accept" 按钮
                             time.sleep(0.5)
-                            pyautogui.press('enter')
+                            self.click_accept()
                             time.sleep(0.5)
                             self.buy_confirm_button.invoke()
-                            self.logger.info("\033[34m✅ 点击 ENTER 完成\033[0m")
+                            
                         time.sleep(2)
                         if self.Verify_buy_no():
                             self.buy_no2_amount = float(self.no2_amount_entry.get())
@@ -1883,10 +1909,10 @@ class CryptoTrader:
                         if self.is_buy_accept():
                             # 点击 "Accept" 按钮
                             time.sleep(0.5)
-                            pyautogui.press('enter')
+                            self.click_accept()
                             time.sleep(0.5)
                             self.buy_confirm_button.invoke()
-                            self.logger.info("✅ 点击 ACCEPT 完成")
+                            
 
                         time.sleep(2)
                         if self.Verify_buy_yes():
@@ -1937,10 +1963,10 @@ class CryptoTrader:
                         if self.is_buy_accept():
                             # 点击 "Accept" 按钮
                             time.sleep(0.5)
-                            pyautogui.press('enter')
+                            self.click_accept()
                             time.sleep(0.5)
                             self.buy_confirm_button.invoke()
-                            self.logger.info("\033[34m✅ 点击 ENTER 完成\033[0m")
+                            
 
                         time.sleep(2)
                         if self.Verify_buy_no():
@@ -2006,10 +2032,9 @@ class CryptoTrader:
                         if self.is_buy_accept():
                             # 点击 "Accept" 按钮
                             time.sleep(0.5)
-                            pyautogui.press('enter')
+                            self.click_accept()
                             time.sleep(0.5)
                             self.buy_confirm_button.invoke()
-                            self.logger.info("✅ 点击 ENTER 完成")
                         time.sleep(2)
                         if self.Verify_buy_yes():
                             self.buy_yes4_amount = float(self.yes4_amount_entry.get())
@@ -2060,10 +2085,9 @@ class CryptoTrader:
                         if self.is_buy_accept():
                             # 点击 "Accept" 按钮
                             time.sleep(0.5)
-                            pyautogui.press('enter')
+                            self.click_accept()
                             time.sleep(0.5)
                             self.buy_confirm_button.invoke()
-                            self.logger.info("\033[34m✅ 点击 ENTER 完成\033[0m")
                         time.sleep(2)
                         if self.Verify_buy_no():
                             # 重置Yes4和No4价格为0
@@ -2181,9 +2205,18 @@ class CryptoTrader:
                         self.yes2_price_entry.insert(0, str(self.default_target_price))
                         self.yes2_price_entry.configure(foreground='red')  # 添加红色设置
 
+                        # 设置 YES5/NO5 价格为 99
+                        self.yes5_price_entry.delete(0, tk.END)
+                        self.yes5_price_entry.insert(0, "99")
+                        self.yes5_price_entry.configure(foreground='red')  # 添加红色设置
+                        self.no5_price_entry.delete(0, tk.END)
+                        self.no5_price_entry.insert(0, "99")
+                        self.no5_price_entry.configure(foreground='red')  # 添加红色设置
+
                         # 重置交易
                         self.reset_trade_count += 1
                         self.reset_count_label.config(text=str(self.reset_trade_count))
+                        self.logger.info(f"重置交易次数: {self.reset_trade_count}")
                         self.sell_count = 0
                         self.trade_count = 0
                         break
@@ -2297,9 +2330,19 @@ class CryptoTrader:
                         self.no2_price_entry.insert(0, str(self.default_target_price))
                         self.no2_price_entry.configure(foreground='red')  # 添加红色设置
 
+                        # 设置 YES5/NO5 价格为 99
+                        self.yes5_price_entry.delete(0, tk.END)
+                        self.yes5_price_entry.insert(0, "99")
+                        self.yes5_price_entry.configure(foreground='red')  # 添加红色设置
+                        self.no5_price_entry.delete(0, tk.END)
+                        self.no5_price_entry.insert(0, "99")
+                        self.no5_price_entry.configure(foreground='red')  # 添加红色设置
+
                         # 重置交易
                         self.reset_trade_count += 1
                         self.reset_count_label.config(text=str(self.reset_trade_count))
+                        self.logger.info(f"重置交易次数: {self.reset_trade_count}")
+                        
                         self.sell_count = 0
                         self.trade_count = 0
                         break
@@ -2375,10 +2418,9 @@ class CryptoTrader:
 
         if self.is_sell_accept():
             # 点击 "Accept" 按钮
-            pyautogui.press('enter')
+            self.click_accept()
             time.sleep(0.5)
             self.sell_confirm_button.invoke()
-            self.logger.info("\033[34m✅ 点击 ACCEPT 完成\033[0m")
 
         time.sleep(2)
         if self.Verify_sold_yes():
@@ -2407,10 +2449,9 @@ class CryptoTrader:
 
         if self.is_sell_accept():
             # 点击 "Accept" 按钮
-            pyautogui.press('enter')
+            self.click_accept()
             time.sleep(0.5)
             self.sell_confirm_button.invoke()
-            self.logger.info("\033[34m✅ 点击 ACCEPT 完成\033[0m")
 
         time.sleep(2)
         if self.Verify_sold_no():
