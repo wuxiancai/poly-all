@@ -138,7 +138,7 @@ if command -v google-chrome &> /dev/null; then
 elif command -v google-chrome-stable &> /dev/null; then
     google-chrome-stable \
         --remote-debugging-port=9222 \
-        --user-data-dir="ChromeDebug" \
+        --user-data-dir="$HOME/ChromeDebug" \
         https://polymarket.com/markets/crypto &
 else
     echo -e "${RED}Chrome 未找到${NC}"
