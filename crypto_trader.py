@@ -1106,15 +1106,20 @@ class CryptoTrader:
                         bids_shares = shares_match.group(1)
         except Exception as e:
             self.logger.warning(f"asks/bids集合里没有数字")
-            
-        asks_price = round(float(up_price), 2)
-        bids_price = round(float(down_price), 2)
-        
-        asks_shares = float(asks_shares.replace(',', ''))
-        bids_shares = float(bids_shares.replace(',', ''))
-        
-        return asks_price, bids_price, asks_shares, bids_shares
 
+        try:  
+            asks_price = round(float(up_price), 2)
+            bids_price = round(float(down_price), 2)
+            
+            asks_shares = float(asks_shares.replace(',', ''))
+            bids_shares = float(bids_shares.replace(',', ''))
+            
+            return asks_price, bids_price, asks_shares, bids_shares
+        
+        except Exception as e:
+            self.logger.warning("价格为 NONE 无法转换类型")
+            return None, None, None, None
+        
     def check_prices(self):
         """检查价格变化"""
         # 检查浏览器连接
