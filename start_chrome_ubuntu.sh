@@ -133,7 +133,7 @@ echo -e "${GREEN}启动 Chrome 中...${NC}"
 if command -v google-chrome &> /dev/null; then
     google-chrome \
         --remote-debugging-port=9222 \
-        --user-data-dir="ChromeDebug" \
+        --user-data-dir="$HOME/ChromeDebug" \
         https://polymarket.com/markets/crypto &
 elif command -v google-chrome-stable &> /dev/null; then
     google-chrome-stable \
