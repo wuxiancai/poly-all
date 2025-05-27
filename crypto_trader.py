@@ -411,7 +411,9 @@ class CryptoTrader:
             settings_container.grid_columnconfigure(i, weight=1)
 
         """设置窗口大小和位置"""
-        window_width = 460
+        if platform.system() == 'Linux':
+            window_width = 550
+        window_width = 460    
         window_height = 800
         screen_width = self.root.winfo_screenwidth()
         screen_height = self.root.winfo_screenheight()
