@@ -184,4 +184,60 @@ sudo apt autoremove -y
 sudo apt autoclean
 pip3 cache purge
 
+# 添加安装检查
+echo "\n${GREEN}===== 安装检查 =====${NC}"
+echo "检查关键组件是否正确安装..."
+
+# 初始化错误计数和错误列表
+ERROR_COUNT=0
+ERROR_LIST=""
+
+# 检查 Python 3.9
+if ! command -v python3.9 &> /dev/null; then
+    ERROR_COUNT=$((ERROR_COUNT+1))
+    ERROR_LIST="${ERROR_LIST}\n${RED}[未安装] Python 3.9${NC} - 请运行: sudo apt install -y python3.9 python3.9-venv python3.9-dev python3.9-distutils"
+fi
+
+# 检查 pip
+if ! command -v pip3 &> /dev/null; then
+    ERROR_COUNT=$((ERROR_COUNT+1))
+    ERROR_LIST="${ERROR_LIST}\n${RED}[未安装] pip3${NC} - 请运行: sudo apt install -y python3-pip 然后 python3.9 -m pip install --upgrade pip"
+fi
+
+# 检查 Chrome
+if ! command -v google-chrome &> /dev/null && ! command -v google-chrome-stable &> /dev/null; then
+    ERROR_COUNT=$((ERROR_COUNT+1))
+    ERROR_LIST="${ERROR_LIST}\n${RED}[未安装] Google Chrome${NC} - 请运行: wget -q -O - https://dl.google.com/linux/linux_signing_key.pub | sudo apt-key add - && echo \"deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main\" | sudo tee /etc/apt/sources.list.d/google-chrome.list && sudo apt update && sudo apt install -y google-chrome-stable"
+fi
+
+# 检查 ChromeDriver
+if ! command -v chromedriver &> /dev/null; then
+    ERROR_COUNT=$((ERROR_COUNT+1))
+    ERROR_LIST="${ERROR_LIST}\n${RED}[未安装] ChromeDriver${NC} - 请先安装Chrome，然后运行脚本中的ChromeDriver安装部分"
+fi
+
+# 检查关键Python包
+PACKAGES=("selenium" "pyautogui" "screeninfo" "requests" "python3-xlib")
+for pkg in "${PACKAGES[@]}"; do
+    if ! pip3 list | grep -i "$pkg" &> /dev/null; then
+        ERROR_COUNT=$((ERROR_COUNT+1))
+        ERROR_LIST="${ERROR_LIST}\n${RED}[未安装] Python包: $pkg${NC} - 请运行: pip3 install --no-cache-dir $pkg"
+    fi
+done
+
+# 检查虚拟环境
+if [ ! -d "venv" ]; then
+    ERROR_COUNT=$((ERROR_COUNT+1))
+    ERROR_LIST="${ERROR_LIST}\n${RED}[未创建] Python虚拟环境${NC} - 请运行: python3.9 -m venv venv --clear"
+fi
+
+# 输出检查结果
+if [ $ERROR_COUNT -eq 0 ]; then
+    echo "${GREEN}所有组件已成功安装!${NC}"
+else
+    echo "${RED}检测到 $ERROR_COUNT 个安装问题:${NC}"
+    echo -e "$ERROR_LIST"
+    echo "\n您可以单独安装上述未成功安装的组件,无需重新运行整个脚本。"
+fi
+
 echo "${GREEN}Ubuntu安装脚本执行完成!${NC}"
