@@ -2232,7 +2232,7 @@ class CryptoTrader:
 
                         # 重置交易
                         self.reset_trade_count += 1
-            
+                        self.reset_count_label.config(text=str(self.reset_trade_count))
                         self.sell_count = 0
                         self.trade_count = 0
                         break
@@ -2348,7 +2348,7 @@ class CryptoTrader:
 
                         # 重置交易
                         self.reset_trade_count += 1
-            
+                        self.reset_count_label.config(text=str(self.reset_trade_count))
                         self.sell_count = 0
                         self.trade_count = 0
                         break
