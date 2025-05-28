@@ -1069,28 +1069,31 @@ class CryptoTrader:
         above_element_texts = []
         below_element_texts = []
         try:
-            # JavaScript to get trimmed text content of previous siblings
-            js_above = '''
-                let e = arguments[0], r = [];
-                while (e = e.previousElementSibling) {
+            # JavaScript to get trimmed text content of previous and next siblings in one call
+            js_combined = '''
+                const container = arguments[0];
+                const result = { above_texts: [], below_texts: [] };
+
+                let above_e = container;
+                while (above_e = above_e.previousElementSibling) {
                     let txt = "";
-                    try { txt = e.innerText || e.textContent || ""; } catch (err) {}
-                    r.push(txt.trim());
+                    try { txt = above_e.innerText || above_e.textContent || ""; } catch (err) {}
+                    result.above_texts.push(txt.trim());
                 }
-                return r;
-            '''
-            # JavaScript to get trimmed text content of next siblings
-            js_below = '''
-                let e = arguments[0], r = [];
-                while (e = e.nextElementSibling) {
+
+                let below_e = container;
+                while (below_e = below_e.nextElementSibling) {
                     let txt = "";
-                    try { txt = e.innerText || e.textContent || ""; } catch (err) {}
-                    r.push(txt.trim());
+                    try { txt = below_e.innerText || below_e.textContent || ""; } catch (err) {}
+                    result.below_texts.push(txt.trim());
                 }
-                return r;
+                return result;
             '''
-            above_element_texts = self.driver.execute_script(js_above, container)
-            below_element_texts = self.driver.execute_script(js_below, container)
+            
+            # Execute the combined JavaScript
+            sibling_texts_result = self.driver.execute_script(js_combined, container)
+            above_element_texts = sibling_texts_result.get('above_texts', [])
+            below_element_texts = sibling_texts_result.get('below_texts', [])
 
         except StaleElementReferenceException:
             self.logger.warning("获取兄弟节点文本时发生StaleElementReferenceException (可能由于container失效)")
@@ -1156,9 +1159,9 @@ class CryptoTrader:
                 down_price_val = round(float(down_price_str), 2)
             if bids_shares_str is not None:
                 bids_shares_val = float(bids_shares_str.replace(',', ''))
-            #self.logger.info(f"up_price_val: {up_price_val}, down_price_val: {down_price_val}, asks_shares_val: {asks_shares_val}, bids_shares_val: {bids_shares_val}")
-            return up_price_val, down_price_val, asks_shares_val, bids_shares_val
-        
+            #self.logger.info(f"up_price_val: {up_price_val}, down_price_val: {down_price_val}, asks_shares_val: {asks_shares_val}, bids_shares_val: {bids_shares_val}")           
+            return up_price_val, down_price_val, asks_shares_val, bids_shares_val 
+             
         except ValueError as e:
             self.logger.error(f"数值转换错误: {e}. Values: up_p='{up_price_str}', ask_s='{asks_shares_str}', down_p='{down_price_str}', bid_s='{bids_shares_str}'")
             return None, None, None, None
@@ -1176,8 +1179,6 @@ class CryptoTrader:
             self.restart_browser()
  
         try:
-            """buy_up_price就是yes price, buy_down_price就是no price"""
-            # up = above = asks, down = below = bids
             # 获取一次价格和股数
             up_price_val, down_price_val, asks_shares_val, bids_shares_val = self.get_nearby_cents()
             
@@ -1188,8 +1189,7 @@ class CryptoTrader:
                 
                 gui_up_price = float(up_price_val)  # 用于GUI显示的 up price (ask price)
                 gui_down_price = 100.0 - float(down_price_val) # 用于GUI显示的 down price (bid price, 100 - raw_bid)
-
-                
+            
                 # 更新价格显示
                 self.yes_price_label.config(text=f"Up: {gui_up_price:.1f}¢")
                 self.no_price_label.config(text=f"Down: {gui_down_price:.1f}¢") # 使用转换后的 no_price
@@ -1197,6 +1197,7 @@ class CryptoTrader:
                 self.down_shares_label.config(text=f"Down Shares: {bids_shares_val:.2f}")
                 
                 # 执行所有交易检查函数
+
                 self.First_trade(up_price_val, down_price_val, asks_shares_val, bids_shares_val)
                 self.Second_trade(up_price_val, down_price_val, asks_shares_val, bids_shares_val)
                 self.Third_trade(up_price_val, down_price_val, asks_shares_val, bids_shares_val)
@@ -1671,17 +1672,11 @@ class CryptoTrader:
             self.logger.error(f"执行 click_accept 点击操作失败: {str(e)}")
 
     def First_trade(self, asks_price_raw, bids_price_raw, asks_shares, bids_shares):
-        """第一次交易价格设置为 0.52 买入
-        Args:
-            asks_price_raw (float): 原始的 ask price (e.g., 52 for 52¢)
-            bids_price_raw (float): 原始的 bid price (e.g., 48 for 48¢)
-            asks_shares (float): asks 对应的股数
-            bids_shares (float): bids 对应的股数
-        """
+        """第一次交易价格设置为 0.52 买入"""
         try:
             if asks_price_raw is not None and asks_price_raw > 20 and bids_price_raw is not None and bids_price_raw < 97:
                 # 获取Yes1和No1的GUI界面上的价格
-                yes1_price = float(self.yes1_price_entry.get()) # Target buy price for YES in GUI
+                yes1_price = float(self.yes1_price_entry.get())
                 no1_price = float(self.no1_price_entry.get())
                 self.trading = True  # 开始交易
                 
@@ -1821,7 +1816,6 @@ class CryptoTrader:
         """处理Yes2/No2的自动交易"""
         try:
             if asks_price_raw is not None and asks_price_raw > 20 and bids_price_raw is not None and bids_price_raw < 97:
-                
                 # 获Yes2和No2的价格输入框
                 yes2_price = float(self.yes2_price_entry.get())
                 no2_price = float(self.no2_price_entry.get())
@@ -1939,8 +1933,7 @@ class CryptoTrader:
     def Third_trade(self, asks_price_raw, bids_price_raw, asks_shares, bids_shares):
         """处理Yes3/No3的自动交易"""
         try:
-            if asks_price_raw is not None and asks_price_raw > 20 and bids_price_raw is not None and bids_price_raw < 97:
-                
+            if asks_price_raw is not None and asks_price_raw > 20 and bids_price_raw is not None and bids_price_raw < 97:                
                 # 获取Yes3和No3的价格输入框
                 yes3_price = float(self.yes3_price_entry.get())
                 no3_price = float(self.no3_price_entry.get())
@@ -2053,8 +2046,7 @@ class CryptoTrader:
         except ValueError as e:
             self.logger.error(f"价格转换错误: {str(e)}")
         except Exception as e:
-            self.logger.error(f"Third_trade执行失败: {str(e)}")
-            
+            self.logger.error(f"Third_trade执行失败: {str(e)}")    
         finally:
             self.trading = False
             
@@ -2174,8 +2166,7 @@ class CryptoTrader:
         except ValueError as e:
             self.logger.error(f"价格转换错误: {str(e)}")
         except Exception as e:
-            self.logger.error(f"Forth_trade执行失败: {str(e)}")
-            
+            self.logger.error(f"Forth_trade执行失败: {str(e)}")  
         finally:
             self.trading = False
             
@@ -2184,9 +2175,7 @@ class CryptoTrader:
         try:
             if not self.driver:
                 self.restart_browser()
-            if self.find_login_button():
-                self.check_and_handle_login()
-                
+              
             if asks_price_raw is not None and bids_price_raw is not None and (bids_price_raw > 10):
                 
                 # 获取Yes5价格
@@ -2312,9 +2301,7 @@ class CryptoTrader:
         try:
             if not self.driver:
                 self.restart_browser()
-            if self.find_login_button():
-                self.check_and_handle_login()
-
+            
             if asks_price_raw is not None and (0 < asks_price_raw < 90) and bids_price_raw is not None:
                 # 获取No5价格
                 no5_price = int(self.no5_price_entry.get())
@@ -2524,9 +2511,6 @@ class CryptoTrader:
             if not self.driver:
                 self.restart_browser()
             
-            if self.find_login_button():
-                self.check_and_handle_login()
-
             time.sleep(1)
             try:
                 yes_element = self.driver.find_element(By.XPATH, XPathConfig.HISTORY[0])
@@ -2571,9 +2555,7 @@ class CryptoTrader:
             # 首先验证浏览器状态
             if not self.driver:
                 self.restart_browser()
-            if self.find_login_button():
-                self.check_and_handle_login()
-
+            
             time.sleep(1)
             # 等待并检查是否存在 No 标签
             try:
@@ -2618,9 +2600,6 @@ class CryptoTrader:
             if not self.driver:
                 self.restart_browser()  
 
-            if self.find_login_button():
-                self.check_and_handle_login()  
-               
             time.sleep(2)
             try:
                 yes_element = self.driver.find_element(By.XPATH, XPathConfig.HISTORY[0])
@@ -2665,9 +2644,6 @@ class CryptoTrader:
             if not self.driver:
                 self.restart_browser()
 
-            if self.find_login_button():
-                self.check_and_handle_login()  
-            
             time.sleep(2)
             try:
                 no_element = self.driver.find_element(By.XPATH, XPathConfig.HISTORY[0])
