@@ -1490,7 +1490,7 @@ class CryptoTrader:
     def _check_login_status_thread(self):
         """在单独线程中执行登录检查,使用cash值为none时,说明未登录,执行登录操作"""
         try:
-            if self.cash_value is None:
+            if not self.cash_value:
                 self.logger.warning("检测到❌未登录状态，执行登录")
                 # 在主线程中执行登录操作
                 
@@ -1541,28 +1541,66 @@ class CryptoTrader:
             self.start_login_monitoring_running = True
             self.login_running = True
 
-            self.click_login_button()
+            self.click_login_button() # 假设此函数已按之前建议修改，不会因按钮找不到而报错
             
-            max_retries = 2
+            max_retries = 2 # 您可以根据需要调整重试次数
             retry_count = 0
+            login_successful_in_retry = False # 标记是否在重试中成功登录
+
             while retry_count < max_retries:
-                time.sleep(2)
-                self.logger.info(f"登录检查失败,等待2秒后重试 ({retry_count + 1}/{max_retries})")
-                if self.cash_value: # 再次检查 self.cash_value
-                    self.logger.info("\033[34m✅ 登录成功 (重试后)\033[0m")
+                time.sleep(2) # 等待页面加载或状态变化
+                self.logger.info(f"登录检查中... (尝试 {retry_count + 1}/{max_retries})")
+
+                cash_element = None
+                cash_value_text = None
+                try:
+                    # 优先尝试直接查找
+                    cash_element = self.driver.find_element(By.XPATH, XPathConfig.CASH_VALUE[0])
+                    if cash_element:
+                       cash_value_text = cash_element.text
+                except NoSuchElementException:
+                    # 如果直接查找失败，再使用带重试的查找
+                    self.logger.info("直接查找CASH_VALUE失败,尝试使用_find_element_with_retry")
+                    found_element = self._find_element_with_retry(
+                        XPathConfig.CASH_VALUE,
+                        timeout=3, # 这个timeout是_find_element_with_retry内部的重试超时
+                        silent=True
+                    )
+                    if found_element:
+                        try:
+                            cash_value_text = found_element.text
+                        except Exception as e_text:
+                            self.logger.warning(f"找到CASH_VALUE元素但获取文本失败: {e_text}")
+                    else:
+                        self.logger.info("_find_element_with_retry未能找到CASH_VALUE元素")
+
+                if cash_value_text is not None and cash_value_text.strip() != "": # 确保获取到的文本非空
+                    self.cash_value = cash_value_text # <<<< 重要：更新实例变量 self.cash_value
+                    self.logger.info(f"\033[34m✅ 登录成功 (获取到余额: {self.cash_value})\033[0m")
                     self.login_running = False
-                    self.refresh_page_timer = self.root.after(5000,self.refresh_page)
-                    self.driver.get(self.target_url)
-                    time.sleep(2) # 确保页面加载
+                    if hasattr(self, 'refresh_page_timer') and self.refresh_page_timer:
+                        self.root.after_cancel(self.refresh_page_timer)
+                    self.refresh_page_timer = self.root.after(5000, self.refresh_page)
+                    self.driver.get(self.target_url) # 导航到目标页面
+                    time.sleep(3) # 登录成功并跳转后，给页面一点加载时间
+                    login_successful_in_retry = True
                     break # 跳出循环
+                else:
+                    self.logger.info(f"登录检查失败 (未获取到余额文本), 等待2秒后重试 ({retry_count + 1}/{max_retries})")
+                
                 retry_count += 1
-            else: # 当循环正常结束（即没有被 break 中断）时执行
-                self.logger.info(f"尝试 {max_retries} 次后登录仍未成功，执行重新登录流程。")
-                self.check_and_handle_login()         
+            
+            if not login_successful_in_retry: # 当循环正常结束（即没有被 break 中断）时执行
+                self.logger.warning(f"尝试 {max_retries} 次后登录仍未成功，将再次调用 check_and_handle_login。")
+                # 考虑是否真的要无限递归，或者是否有其他处理机制
+                self.root.after(1000, self.check_and_handle_login) # 延迟后再次尝试，避免快速无限递归
+            
         except Exception as e:
-            self.logger.error(f"登录失败: {str(e)}")
-        
-    # 添加刷新方法
+            self.logger.error(f"登录流程 'check_and_handle_login' 发生严重错误: {str(e)}")
+            self.login_running = False # 确保 login_running 状态被重置
+            # 发生严重错误后，也考虑是否需要延迟后重试
+            self.root.after(5000, self.check_and_handle_login) # 例如5秒后重试
+
     def refresh_page(self):
         """定时刷新页面"""
         # 生成随机的5-10分钟（以毫秒为单位）
