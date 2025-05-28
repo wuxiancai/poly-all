@@ -1490,59 +1490,77 @@ class CryptoTrader:
     def _check_login_status_thread(self):
         """在单独线程中执行登录检查,使用cash值为none时,说明未登录,执行登录操作"""
         try:
-            try:
-                time.sleep(3)
-                if self.cash_value is None:
-                    self.logger.warning("检测到❌未登录状态，执行登录")
-                    # 在主线程中执行登录操作
-                    self.root.after(0, self.check_and_handle_login) 
-            except NoSuchElementException:
-                # 找不到登录按钮,说明已经登录
-                pass   
-        except Exception as e:
-            self.logger.error(f"登录状态检查线程出错: {str(e)}")
+            if self.cash_value is None:
+                self.logger.warning("检测到❌未登录状态，执行登录")
+                # 在主线程中执行登录操作
+                
+                self.root.after(0, self.check_and_handle_login) 
+        except NoSuchElementException:
+            # 找不到登录按钮,说明已经登录
+            pass   
+        
+    def click_login_button(self):
+        """点击登录按钮""" 
+        login_button = None
+        try:
+            login_button = self.driver.find_element(By.XPATH, XPathConfig.LOGIN_BUTTON[0])
+            
+        except NoSuchElementException:
+            login_button = self._find_element_with_retry(
+                XPathConfig.LOGIN_BUTTON,
+                timeout=3,
+                silent=True
+            )
+        if login_button:    
+            login_button.click()
+        
+        # 使用 XPath 定位并点击 google 按钮
+        google_button = None
+        try:
+            google_button = self.driver.find_element(By.XPATH, XPathConfig.LOGIN_WITH_GOOGLE_BUTTON[0])
+        except NoSuchElementException:
+            google_button = self._find_element_with_retry(
+                XPathConfig.LOGIN_WITH_GOOGLE_BUTTON,
+                timeout=3,
+                silent=True
+            )
+        if google_button:
+            google_button.click()
+            self.logger.info("\033[34m✅ 已点击登录按钮\033[0m")
+        
+        time.sleep(5)
 
     def check_and_handle_login(self):
         """执行登录操作"""
+        self.stop_refresh_page()
         try:
             self.logger.info("开始执行登录操作...")
-            
             if not self.driver:
                 self.restart_browser()
                 
             self.start_login_monitoring_running = True
             self.login_running = True
-            
-            # 点击登录按钮
-            try:
-                login_button = self.driver.find_element(By.XPATH, XPathConfig.LOGIN_BUTTON[0])
-                login_button.click()
-            except NoSuchElementException:
-                login_button = self._find_element_with_retry(
-                    XPathConfig.LOGIN_BUTTON,
-                    timeout=3,
-                    silent=True
-                )
-                login_button.click()
-            
-            # 使用 XPath 定位并点击 google 按钮
-            google_button = self._find_element_with_retry(XPathConfig.LOGIN_WITH_GOOGLE_BUTTON, timeout=3, silent=True)
-            google_button.click()
-            time.sleep(20)
 
-            if self.cash_value:
-                self.logger.info("\033[34m✅ 登录成功\033[0m")
-                self.login_running = False
-                self.driver.get(self.target_url)
-                time.sleep(2)    
-            else:
-                self.logger.warning("登录失败,等待2秒后重试")
-                time.sleep(1)
-                self.check_and_handle_login()
-                
+            self.click_login_button()
+            
+            max_retries = 2
+            retry_count = 0
+            while retry_count < max_retries:
+                time.sleep(2)
+                self.logger.info(f"登录检查失败,等待2秒后重试 ({retry_count + 1}/{max_retries})")
+                if self.cash_value: # 再次检查 self.cash_value
+                    self.logger.info("\033[34m✅ 登录成功 (重试后)\033[0m")
+                    self.login_running = False
+                    self.refresh_page_timer = self.root.after(5000,self.refresh_page)
+                    self.driver.get(self.target_url)
+                    time.sleep(2) # 确保页面加载
+                    break # 跳出循环
+                retry_count += 1
+            else: # 当循环正常结束（即没有被 break 中断）时执行
+                self.logger.info(f"尝试 {max_retries} 次后登录仍未成功，执行重新登录流程。")
+                self.check_and_handle_login()         
         except Exception as e:
             self.logger.error(f"登录失败: {str(e)}")
-            self.driver.refresh()
         
     # 添加刷新方法
     def refresh_page(self):
@@ -2413,6 +2431,7 @@ class CryptoTrader:
 
     def only_sell_yes(self):
         """只卖出YES"""
+        self.logger.info("执行only_sell_yes")
         self.position_sell_yes_button.invoke()
         time.sleep(0.5)
         self.sell_confirm_button.invoke()
@@ -2444,6 +2463,7 @@ class CryptoTrader:
        
     def only_sell_no(self):
         """只卖出Down"""
+        self.logger.info("执行only_sell_no")
         self.position_sell_no_button.invoke()
         time.sleep(0.5)
         self.sell_confirm_button.invoke()
