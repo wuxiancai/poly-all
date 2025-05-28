@@ -1009,7 +1009,7 @@ class CryptoTrader:
                 self.logger.error(f"加载目标页面失败: {str(e)}")
                 return
 
-            if self.find_login_button():
+            if self.cash_value is None:
                 self.logger.info("未登录,开始登录")
 
                 # 点击登录按钮
@@ -1050,7 +1050,7 @@ class CryptoTrader:
         try:
             keyword_element = self.driver.find_element(By.XPATH, XPathConfig.SPREAD[0])
         except NoSuchElementException:
-            self.logger.warning(f"SPREAD元素最终未找到: {keyword_element}")
+            #self.logger.warning(f"SPREAD元素最终未找到: {keyword_element}")
             return None, None, None, None
         
         # 获取container
@@ -1058,11 +1058,11 @@ class CryptoTrader:
         try:
             container = keyword_element.find_element(By.XPATH, './ancestor::div[3]')
         except NoSuchElementException:
-            self.logger.warning(f"SPREAD元素 '{keyword_element.text}' 的ancestor::div[3] (container) 未找到")
+            #self.logger.warning(f"SPREAD元素 '{keyword_element.text}' 的ancestor::div[3] (container) 未找到")
             return None, None, None, None
         
         if not container:
-            self.logger.warning("Container for SPREAD not found (was None after trying to get ancestor).")
+            #self.logger.warning("Container for SPREAD not found (was None after trying to get ancestor).")
             return None, None, None, None         
 
         # 取兄弟节点
@@ -1096,17 +1096,15 @@ class CryptoTrader:
             below_element_texts = sibling_texts_result.get('below_texts', [])
 
         except StaleElementReferenceException:
-            self.logger.warning("获取兄弟节点文本时发生StaleElementReferenceException (可能由于container失效)")
+            #self.logger.warning("获取兄弟节点文本时发生StaleElementReferenceException (可能由于container失效)")
             return None, None, None, None
         except Exception as e:
-            self.logger.error(f"执行JavaScript获取兄弟节点文本失败: {str(e)}")
+            #self.logger.error(f"执行JavaScript获取兄弟节点文本失败: {str(e)}")
             return None, None, None, None
         
         up_price_str = None
         asks_shares_str = None
-        # A valid "ask" block seems to be (Total Value, Shares, Price Cents).
-        # We iterate to find the first such block in above_element_texts.
-        # This corresponds to the lowest ask price.
+        
         if len(above_element_texts) >= 3: # Need at least 3 elements for a block
             for i in range(len(above_element_texts) - 2): 
                 total_value_candidate = above_element_texts[i]
@@ -1125,9 +1123,7 @@ class CryptoTrader:
                             asks_shares_str = cleaned_shares
                             #self.logger.info(f"Found UP price (ask): {up_price_str} from '{price_candidate}', shares: {asks_shares_str} from '{shares_candidate}'")
                             break # Found the first, lowest ask
-        if not up_price_str: # Log if not found after checking all potential blocks
-             self.logger.warning("未能从above_element_texts找到有效的up_price和asks_shares (ask block pattern match)")
-
+        
         down_price_str = None
         bids_shares_str = None
         # For "down" (bids), the pattern is Price Cents, then Shares
@@ -1146,9 +1142,7 @@ class CryptoTrader:
                             bids_shares_str = potential_shares_cleaned 
                             #self.logger.info(f"Found DOWN price (bid): {down_price_str} from '{current_text}', shares: {bids_shares_str} from '{next_text}'")
                             break # Found the first (highest) bid
-        if not down_price_str: # Log if not found
-            self.logger.warning("未能从below_element_texts找到有效的down_price和bids_shares (bid pattern match)")
-
+        
         try:  
             if up_price_str is not None: # Check for None before float conversion
                 up_price_val = round(float(up_price_str), 2)
@@ -1163,10 +1157,10 @@ class CryptoTrader:
             return up_price_val, down_price_val, asks_shares_val, bids_shares_val 
              
         except ValueError as e:
-            self.logger.error(f"数值转换错误: {e}. Values: up_p='{up_price_str}', ask_s='{asks_shares_str}', down_p='{down_price_str}', bid_s='{bids_shares_str}'")
+            #self.logger.error(f"数值转换错误: {e}. Values: up_p='{up_price_str}', ask_s='{asks_shares_str}', down_p='{down_price_str}', bid_s='{bids_shares_str}'")
             return None, None, None, None
         except Exception as e: # Catch any other unexpected errors during conversion
-            self.logger.error(f"解析价格和股数时发生未知错误: {str(e)}")
+            #self.logger.error(f"解析价格和股数时发生未知错误: {str(e)}")
             return None, None, None, None
         
     def check_prices(self):
@@ -1229,6 +1223,8 @@ class CryptoTrader:
         
         try:
             # 取Portfolio值和Cash值
+            self.cash_value = None
+            self.portfolio_value = None
             try:
                 portfolio_element = self.driver.find_element(By.XPATH, XPathConfig.PORTFOLIO_VALUE[0])
                 cash_element = self.driver.find_element(By.XPATH, XPathConfig.CASH_VALUE[0])
@@ -1466,28 +1462,7 @@ class CryptoTrader:
             
             # 重置监控状态
             self.url_monitoring_running = False
-            
             self.logger.info("\033[31m❌ URL监控已停止\033[0m")
-
-    def find_login_button(self):
-        """查找登录按钮"""
-        # 使用静默模式查找元素，并添加空值检查
-        try:
-            login_button = self.driver.find_element(By.XPATH, XPathConfig.LOGIN_BUTTON[0])
-        except NoSuchElementException:
-            login_button = self._find_element_with_retry(
-                XPathConfig.LOGIN_BUTTON,
-                timeout=3,
-                silent=True
-            )
-        
-        # 添加空值检查和安全访问
-        if login_button is not None and "Log In" in login_button.text:
-            self.logger.warning("检查到未登录,自动登录...")
-            return True
-        else:
-            # 正常状态无需记录日志
-            return False
 
     def start_login_monitoring(self):
         """启动登录状态监控"""
@@ -1509,20 +1484,18 @@ class CryptoTrader:
                 # 继续监控
                 if self.running:
                     self.login_check_timer = self.root.after(10000, check_login_status)  # 每10秒检查一次
-        
         # 开始第一次检查
         self.login_check_timer = self.root.after(10000, check_login_status)
 
     def _check_login_status_thread(self):
-        """在单独线程中执行登录检查"""
+        """在单独线程中执行登录检查,使用cash值为none时,说明未登录,执行登录操作"""
         try:
             try:
                 time.sleep(3)
-                if self.find_login_button():
+                if self.cash_value is None:
                     self.logger.warning("检测到❌未登录状态，执行登录")
                     # 在主线程中执行登录操作
-                    self.root.after(0, self.check_and_handle_login)
-                
+                    self.root.after(0, self.check_and_handle_login) 
             except NoSuchElementException:
                 # 找不到登录按钮,说明已经登录
                 pass   
@@ -1555,14 +1528,13 @@ class CryptoTrader:
             # 使用 XPath 定位并点击 google 按钮
             google_button = self._find_element_with_retry(XPathConfig.LOGIN_WITH_GOOGLE_BUTTON, timeout=3, silent=True)
             google_button.click()
-            time.sleep(30)
+            time.sleep(20)
 
-            if not self.find_login_button():
+            if self.cash_value:
                 self.logger.info("\033[34m✅ 登录成功\033[0m")
                 self.login_running = False
                 self.driver.get(self.target_url)
-                time.sleep(2)
-                
+                time.sleep(2)    
             else:
                 self.logger.warning("登录失败,等待2秒后重试")
                 time.sleep(1)
@@ -1659,8 +1631,8 @@ class CryptoTrader:
                 
             else:
                 # 其他操作系统的默认坐标分辨率 1920x1080
-                target_x = screen_width - 600
-                target_y = 780
+                target_x = screen_width - 520
+                target_y = 724
                 
             # 移动鼠标到目标位置并点击
             pyautogui.moveTo(target_x, target_y, duration=0.2) # 可选，平滑移动
