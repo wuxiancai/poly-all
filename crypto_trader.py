@@ -1411,7 +1411,27 @@ class CryptoTrader:
             
             # 开始第一次检查
             self.url_check_timer = self.root.after(1000, check_url)
-    
+    def stop_url_monitoring(self):
+        """停止URL监控"""
+        with self.url_monitoring_lock:
+            # 检查是否有正在运行的URL监控
+            if not hasattr(self, 'url_monitoring_running') or not self.url_monitoring_running:
+                self.logger.debug("URL监控未在运行中,无需停止")
+                return
+            
+            # 取消定时器
+            if hasattr(self, 'url_check_timer') and self.url_check_timer:
+                try:
+                    self.root.after_cancel(self.url_check_timer)
+                    self.url_check_timer = None
+                    
+                except Exception as e:
+                    self.logger.error(f"取消URL监控定时器时出错: {str(e)}")
+            
+            # 重置监控状态
+            self.url_monitoring_running = False
+            self.logger.info("\033[31m❌ URL监控已停止\033[0m")
+
     def _is_browser_alive(self):
         """检查浏览器是否仍然活跃"""
         try:
@@ -1442,27 +1462,6 @@ class CryptoTrader:
         except Exception as e:
             self.logger.error(f"重新连接浏览器失败: {str(e)}")
             return False
-
-    def stop_url_monitoring(self):
-        """停止URL监控"""
-        with self.url_monitoring_lock:
-            # 检查是否有正在运行的URL监控
-            if not hasattr(self, 'url_monitoring_running') or not self.url_monitoring_running:
-                self.logger.debug("URL监控未在运行中,无需停止")
-                return
-            
-            # 取消定时器
-            if hasattr(self, 'url_check_timer') and self.url_check_timer:
-                try:
-                    self.root.after_cancel(self.url_check_timer)
-                    self.url_check_timer = None
-                    
-                except Exception as e:
-                    self.logger.error(f"取消URL监控定时器时出错: {str(e)}")
-            
-            # 重置监控状态
-            self.url_monitoring_running = False
-            self.logger.info("\033[31m❌ URL监控已停止\033[0m")
 
     def start_login_monitoring(self):
         """启动登录状态监控"""
@@ -3365,7 +3364,7 @@ class CryptoTrader:
         """安排每天1点2分执行自动找币"""
         now = datetime.now()
         # 计算下一个3点2分的时间
-        next_run = now.replace(hour=2, minute=30, second=0, microsecond=0)
+        next_run = now.replace(hour=2, minute=27, second=0, microsecond=0)
         if now >= next_run:
             next_run += timedelta(days=1)
         
@@ -3411,7 +3410,7 @@ class CryptoTrader:
                         self.trading_pair_label.config(text=pair.group(1))
                         self.logger.info(f"\033[34m✅ {self.target_url} 已插入到主界面上\033[0m")
                         self.start_url_monitoring()
-                        self.refresh_page()
+                        self.refresh_page_timer = self.root.after(5000, self.refresh_page)
                         self.schedule_auto_find_coin()
                         return     
                 except Exception as e:
@@ -3524,7 +3523,7 @@ class CryptoTrader:
                         self.driver.switch_to.window(self.target_url_window)
 
                         self.start_url_monitoring()
-                        self.refresh_page()
+                        self.refresh_page_timer = self.root.after(5000, self.refresh_page)
 
                         return False
                     else:
