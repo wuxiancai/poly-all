@@ -1577,30 +1577,33 @@ class CryptoTrader:
 
             self.click_login_button()
 
-            max_retries = 7
-            retry_count = 0
+            time.sleep(2)
+            # 检查 "Log In" 按钮是否仍然存在
+            login_button_still_present = self.find_login_button()
+            time.sleep(2)
+            if login_button_still_present:
+                self.click_login_button()
 
-            while retry_count < max_retries:
-                self.logger.info(f"登录检查中... (尝试 {retry_count + 1}/{max_retries})")
-                time.sleep(2)
-                # 检查 "Log In" 按钮是否仍然存在
-                login_button_still_present = self.find_login_button()
+            # 找 CASH的值, 如果找到, 则登录成功
+            cash_value = None
+            try:
+                cash_value = self.driver.find_element(By.XPATH, XPathConfig.CASH_VALUE[0])
+            except NoSuchElementException:
+                cash_value = self._find_element_with_retry(
+                    XPathConfig.CASH_VALUE,
+                    timeout=3,
+                    silent=True
+                )
 
-                if login_button_still_present:
-                    self.click_login_button()
-
-                elif not login_button_still_present:
-                    self.logger.info(f"✅ 找到 \033[34mlogin_button={login_button_still_present}\\033[0m ,登录成功")
-                    
-                    time.sleep(2) 
-                    # 确保在主线程中调用 refresh_page
-                    self.root.after(2000, self.start_url_monitoring)
-                    self.root.after(20000, self.refresh_page)
-                    self.logger.info(f"✅ \033[34m启动页面刷新\033[0m")
-                    self.login_running = False
-                    break 
-                    
-                retry_count += 1
+            if not login_button_still_present and cash_value:
+                self.logger.info(f"✅ 找到 \033[34mlogin_button={login_button_still_present}和cash的值:{cash_value.text}\\033[0m ,登录成功")
+                
+                time.sleep(2) 
+                # 确保在主线程中调用 refresh_page
+                self.root.after(2000, self.start_url_monitoring)
+                self.root.after(20000, self.refresh_page)
+                self.logger.info(f"✅ \033[34m启动页面刷新\033[0m")
+                self.login_running = False
             
         except Exception as e:
             self.logger.info(f"❌ 登录流程 'check_and_handle_login' 发生错误: {e}")
@@ -2211,12 +2214,12 @@ class CryptoTrader:
             if asks_price_raw is not None and bids_price_raw is not None and (bids_price_raw > 10):
                 
                 # 获取Yes5价格
-                yes5_price = int(self.yes5_price_entry.get())
+                yes5_price = float(self.yes5_price_entry.get())
                 self.trading = True  # 开始交易
                 price_diff = round(bids_price_raw - yes5_price, 2)
 
                 # 检查Yes5价格匹配
-                if yes5_price <=47 and 0 <= price_diff <= 1.1 and (bids_shares > self.bids_shares):
+                if yes5_price <= 47 and 0 <= price_diff <= 1.1 and (bids_shares > self.bids_shares):
                     self.logger.info(f"Up 5: {bids_price_raw}¢ 价格匹配,执行自动卖出")
                     
                     self.yes5_target_price = yes5_price
@@ -2336,7 +2339,7 @@ class CryptoTrader:
             
             if asks_price_raw is not None and (0 < asks_price_raw < 90) and bids_price_raw is not None:
                 # 获取No5价格
-                no5_price = int(self.no5_price_entry.get())
+                no5_price = float(self.no5_price_entry.get())
                 self.trading = True  # 开始交易
                 price_diff = round(100 - asks_price_raw - no5_price, 2)
             
@@ -3652,71 +3655,67 @@ class CryptoTrader:
         """获取币安BTC实时价格,并在中国时区00:00触发。此方法在threading.Timer的线程中执行。"""
         api_data = None
         coin_for_api = ""
-        try:
-            # 这部分代码在辅助线程中运行
-            # 1. 获取币种信息（非GUI操作）
-            # 注意：如果self.coin_combobox.get()依赖于GUI线程状态，应在主线程获取或传递参数
-            # 但通常 .get() 是安全的。为确保最新选择，可以在主线程获取并传递，或在更新GUI时重新获取。
-            # 此处，由于是0点价格，假设启动时选定的币种是目标。
-            selected_coin = self.coin_combobox.get() # 获取当前选择的币种
-            coin_for_api = selected_coin + 'USDT'
+        max_retries = 10 # 最多重试次数
+        retry_delay = 2  # 重试间隔（秒）
 
-            # 2. 执行网络请求
-            response = requests.get(f'https://api.binance.com/api/v3/ticker/price?symbol={coin_for_api}', timeout=5) # 添加超时
-            response.raise_for_status() # 如果状态码不是2xx，则抛出HTTPError
+        for attempt in range(max_retries):
+            try:
+                # 1. 获取币种信息
+                selected_coin = self.coin_combobox.get() 
+                coin_for_api = selected_coin + 'USDT'
 
-            data = response.json()
-            price = round(float(data['price']), 3)
-            api_data = {"price": price, "coin": coin_for_api, "original_selected_coin": selected_coin}
-            self.logger.info(f"✅ 成功获取到币安 \033[34m{api_data['coin']}\033[0m 价格: \033[34m{api_data['price']}\033[0m")
+                # 2. 执行网络请求
+                response = requests.get(f'https://api.binance.com/api/v3/ticker/price?symbol={coin_for_api}', timeout=5)
+                response.raise_for_status() 
 
-        except requests.exceptions.Timeout:
-            self.logger.info(f"❌ 获取币安 \033[34m{coin_for_api}\033[0m 价格超时。")
-        except requests.exceptions.HTTPError as http_err:
-            self.logger.info(f"❌ 获取币安 \033[34m{coin_for_api}\033[0m 价格时发生HTTP错误: {http_err}")
-        except requests.exceptions.RequestException as req_err:
-            self.logger.info(f"❌ 获取币安 \033[34m{coin_for_api}\033[0m 价格时发生网络请求错误: {req_err}")
-        except Exception as e:
-            self.logger.info(f"❌ 获取币安 \033[34m{coin_for_api}\033[0m 价格时发生未知错误: {e}")
-            # 不再在此处直接调用 self.get_binance_zero_time_price()
+                data = response.json()
+                price = round(float(data['price']), 3)
+                api_data = {"price": price, "coin": coin_for_api, "original_selected_coin": selected_coin}
+                self.logger.info(f"✅ (尝试 {attempt + 1}/{max_retries}) 成功获取到币安 \033[34m{api_data['coin']}\033[0m 价格: \033[34m{api_data['price']}\033[0m")
+                break # 获取成功，跳出重试循环
+
+            except requests.exceptions.Timeout:
+                self.logger.warning(f"❌ (尝试 {attempt + 1}/{max_retries}) 获取币安 \033[34m{coin_for_api}\033[0m 价格超时。")
+            except requests.exceptions.HTTPError as http_err:
+                self.logger.warning(f"❌ (尝试 {attempt + 1}/{max_retries}) 获取币安 \033[34m{coin_for_api}\033[0m 价格时发生HTTP错误: {http_err}")
+            except requests.exceptions.RequestException as req_err:
+                self.logger.warning(f"❌ (尝试 {attempt + 1}/{max_retries}) 获取币安 \033[34m{coin_for_api}\033[0m 价格时发生网络请求错误: {req_err}")
+            except Exception as e:
+                self.logger.warning(f"❌ (尝试 {attempt + 1}/{max_retries}) 获取币安 \033[34m{coin_for_api}\033[0m 价格时发生未知错误: {e}")
             
-        else:
-            # 3. 如果成功获取数据 (即try块没有异常)，则安排GUI更新到主线程
-            if api_data:
-                def update_gui():
-                    # 这部分代码将在主GUI线程中运行
-                    try:
-                        # 更新 last_coin_price 和标签
-                        self.last_coin_price = api_data["price"] # 更新的是获取到的价格
-                        self.binance_zero_price_label.config(text=f"${api_data['price']}")
-                        #self.logger.info(f"✅ GUI已更新 \033[34m{api_data['coin']}\033[0m 零点价格: \033[34m${api_data['price']}\033[0m")
-                    except Exception as e_gui:
-                        self.logger.debug(f"❌ 更新零点价格GUI时出错")
-                
-                self.root.after(0, update_gui)
+            if attempt < max_retries - 1: # 如果不是最后一次尝试
+                self.logger.info(f"等待 {retry_delay} 秒后重试...")
+                time.sleep(retry_delay) # 等待后重试
+            else: # 最后一次尝试仍然失败
+                self.logger.error(f"❌ 获取币安 \033[34m{coin_for_api}\033[0m 价格失败，已达到最大重试次数 ({max_retries})。")
+        
+        # 3. 如果成功获取数据 (即try块没有异常且api_data不为None)，则安排GUI更新到主线程
+        if api_data:
+            def update_gui():
+                try:
+                    self.last_coin_price = api_data["price"]
+                    self.binance_zero_price_label.config(text=f"${api_data['price']}")
+                except Exception as e_gui:
+                    self.logger.debug(f"❌ 更新零点价格GUI时出错: {e_gui}")
+            
+            self.root.after(0, update_gui)
 
-        # 4. 在 finally 块中重新调度下一次执行 (总是在辅助线程中完成)
-        finally:
-            now = datetime.now()
-            # 计算下一个00:00的时间
-            next_run_time = now.replace(hour=0, minute=0, second=0, microsecond=0)
-            if now >= next_run_time: # 如果当前时间已经过了今天的00:00
-                next_run_time += timedelta(days=1) # 则安排在明天的00:00
+        now = datetime.now()
+        next_run_time = now.replace(hour=0, minute=0, second=0, microsecond=0)
+        if now >= next_run_time:
+            next_run_time += timedelta(days=1)
 
-            seconds_until_next_run = (next_run_time - now).total_seconds()
+        seconds_until_next_run = (next_run_time - now).total_seconds()
 
-            # 取消已有的定时器（如果存在）
-            # 使用不同的属性名存储Timer对象，避免与之前的混淆，例如 self.binance_price_timer_thread
-            if hasattr(self, 'binance_zero_price_timer_thread') and self.binance_zero_price_timer_thread and self.binance_zero_price_timer_thread.is_alive():
-                self.binance_zero_price_timer_thread.cancel()
+        if hasattr(self, 'binance_zero_price_timer_thread') and self.binance_zero_price_timer_thread and self.binance_zero_price_timer_thread.is_alive():
+            self.binance_zero_price_timer_thread.cancel()
 
-            if self.running and not self.stop_event.is_set():
-                # 获取下一次执行时将记录的币种，确保日志信息准确
-                coin_for_next_log = self.coin_combobox.get() + 'USDT'
-                self.binance_zero_price_timer_thread = threading.Timer(seconds_until_next_run, self.get_binance_zero_time_price)
-                self.binance_zero_price_timer_thread.daemon = True
-                self.binance_zero_price_timer_thread.start()
-                self.logger.info(f"✅ \033[34m{round(seconds_until_next_run / 3600,2)}\033[0m 小时后重新获取{coin_for_next_log} 零点价格")
+        if self.running and not self.stop_event.is_set():
+            coin_for_next_log = self.coin_combobox.get() + 'USDT'
+            self.binance_zero_price_timer_thread = threading.Timer(seconds_until_next_run, self.get_binance_zero_time_price)
+            self.binance_zero_price_timer_thread.daemon = True
+            self.binance_zero_price_timer_thread.start()
+            self.logger.info(f"✅ \033[34m{round(seconds_until_next_run / 3600,2)}\033[0m 小时后重新获取{coin_for_next_log} 零点价格")
     
     def get_now_price(self):
         """获取当前价格。此方法在threading.Timer的线程中执行。"""
