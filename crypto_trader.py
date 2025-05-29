@@ -1596,9 +1596,7 @@ class CryptoTrader:
                 )
 
             if not login_button_still_present and cash_value:
-                self.logger.info(f"✅ 找到 \033[34mlogin_button={login_button_still_present}和cash的值:{cash_value.text}\\033[0m ,登录成功")
-                
-                time.sleep(2) 
+                self.logger.info(f"✅ 找到 \033[34mlogin_button={login_button_still_present}和cash的值:{cash_value.text}\033[0m ,登录成功")
                 # 确保在主线程中调用 refresh_page
                 self.root.after(2000, self.start_url_monitoring)
                 self.root.after(20000, self.refresh_page)
