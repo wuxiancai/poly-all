@@ -112,6 +112,7 @@ class CryptoTrader:
         # 添加URL and refresh_page监控锁
         self.url_monitoring_lock = threading.Lock()
         self.refresh_page_lock = threading.Lock()
+        self.login_attempt_lock = threading.Lock()
 
         # 初始化本金
         self.initial_amount = 2.5
@@ -806,15 +807,15 @@ class CryptoTrader:
         self.set_amount_button['state'] = 'normal'
 
         # 启动URL监控
-        self.root.after(5000, self.start_url_monitoring)
+        self.root.after(10000, self.start_url_monitoring)
         # 检查是否登录
         self.root.after(8000, self.start_login_monitoring)
 
         # 启动零点 CASH 监控
-        self.root.after(10000, self.get_zero_time_cash)
+        self.root.after(12000, self.get_zero_time_cash)
 
         # 启动币安零点时价格监控
-        self.root.after(13000, self.get_binance_zero_time_price)
+        self.root.after(14000, self.get_binance_zero_time_price)
         
         # 启动币安实时价格监控
         self.root.after(16000, self.get_now_price)
@@ -830,7 +831,7 @@ class CryptoTrader:
         self.logger.info("\033[34m✅ 启动页面刷新成功!\033[0m")
         
         # 启动 XPath 监控
-        self.monitor_xpath_timer = self.root.after(60000, self.monitor_xpath_elements)
+        self.monitor_xpath_timer = self.root.after(600000, self.monitor_xpath_elements)
 
     def _start_browser_monitoring(self, new_url):
         """在新线程中执行浏览器操作"""
@@ -1463,6 +1464,64 @@ class CryptoTrader:
             self.logger.error(f"重新连接浏览器失败: {str(e)}")
             return False
 
+    def find_login_button(self):
+        """查找登录按钮"""
+        login_button_element = None # 重命名以区分元素和文本
+        try:
+            login_button_element = self.driver.find_element(By.XPATH, XPathConfig.LOGIN_BUTTON[0])
+        except NoSuchElementException:
+            login_button_element = self._find_element_with_retry(
+                XPathConfig.LOGIN_BUTTON,
+                timeout=3,
+                silent=True
+            )
+        
+        if login_button_element:
+            try:
+                if login_button_element.text == "Log In":
+                    self.logger.info(f"\033[34m✅ 找到登录按钮，文本为 '{login_button_element.text}'\033[0m")
+                    return login_button_element # 返回 WebElement 对象
+                else:
+                    return None # 文本不匹配，返回 None
+            except StaleElementReferenceException:
+                self.logger.warning("获取登录按钮文本时发生 StaleElementReferenceException将重试查找。")
+                return None
+        else:
+            
+            return None # 未找到元素，返回 None
+    
+    def click_login_button(self):
+        """点击登录按钮""" 
+        login_button_element = self.find_login_button() # 现在返回元素或 None
+
+        if login_button_element: # 检查是否获取到了元素   
+            try:
+                login_button_element.click()
+                self.logger.info("\033[34m✅ 已点击 'Log In' 按钮\033[0m")
+
+                # 使用 XPath 定位并点击 google 按钮
+                google_button = None
+                try:
+                    google_button = self.driver.find_element(By.XPATH, XPathConfig.LOGIN_WITH_GOOGLE_BUTTON[0])
+                except NoSuchElementException:
+                    google_button = self._find_element_with_retry(
+                        XPathConfig.LOGIN_WITH_GOOGLE_BUTTON,
+                        timeout=3,
+                        silent=True
+                    )
+                if google_button:
+                    google_button.click()
+                    self.logger.info("\033[34m✅ 已点击 Google 登录按钮\033[0m")
+                
+                time.sleep(8) # 等待后续操作或页面跳转
+
+            except StaleElementReferenceException:
+                self.logger.warning("点击登录按钮时发生 StaleElementReferenceException，可能需要重新查找按钮或处理页面刷新。")
+            except Exception as e:
+                self.logger.info(f"❌ 点击登录按钮或 Google 按钮时出错")
+        else:
+            self.logger.info("❌ 未找到 'Log In' 按钮或不符合点击条件，跳过点击。")
+
     def start_login_monitoring(self):
         """启动登录状态监控"""
         self.logger.info("\033[34m✅ 启动登录状态监控\033[0m")
@@ -1487,118 +1546,64 @@ class CryptoTrader:
         self.login_check_timer = self.root.after(10000, check_login_status)
 
     def _check_login_status_thread(self):
-        """在单独线程中执行登录检查,使用cash值为none时,说明未登录,执行登录操作"""
+        """在单独线程中执行登录检查,执行登录操作"""
         try:
-            if not self.cash_value:
-                self.logger.warning("检测到❌未登录状态，执行登录")
-                # 在主线程中执行登录操作
+            login_button_element_found = self.find_login_button()
+
+            if login_button_element_found:
                 
-                self.root.after(0, self.check_and_handle_login) 
-        except NoSuchElementException:
-            # 找不到登录按钮,说明已经登录
-            pass   
-        
-    def click_login_button(self):
-        """点击登录按钮""" 
-        login_button = None
-        try:
-            login_button = self.driver.find_element(By.XPATH, XPathConfig.LOGIN_BUTTON[0])
-            
-        except NoSuchElementException:
-            login_button = self._find_element_with_retry(
-                XPathConfig.LOGIN_BUTTON,
-                timeout=3,
-                silent=True
-            )
-        if login_button:    
-            login_button.click()
-        
-        # 使用 XPath 定位并点击 google 按钮
-        google_button = None
-        try:
-            google_button = self.driver.find_element(By.XPATH, XPathConfig.LOGIN_WITH_GOOGLE_BUTTON[0])
-        except NoSuchElementException:
-            google_button = self._find_element_with_retry(
-                XPathConfig.LOGIN_WITH_GOOGLE_BUTTON,
-                timeout=3,
-                silent=True
-            )
-        if google_button:
-            google_button.click()
-            self.logger.info("\033[34m✅ 已点击登录按钮\033[0m")
-        
-        time.sleep(5)
+                try:
+                    self.logger.warning(f"❌ 检测到未登录状态, 执行登录操作")
+                    # 在新的辅助线程中执行登录操作
+                    login_thread = threading.Thread(target=self.check_and_handle_login, daemon=True)
+                    login_thread.start()   
+                except Exception as e_thread_start:
+                    self.logger.error(f"启动登录线程失败: {e_thread_start}")
+                                
+        except Exception as e:
+            self.logger.info(f"❌ _check_login_status_thread 中发生意外错误: {e}")
 
     def check_and_handle_login(self):
-        """执行登录操作"""
-        self.stop_refresh_page()
+        """执行登录操作 - 此函数由 _check_login_status_thread 在获得锁后于新线程中启动"""
         try:
-            self.logger.info("开始执行登录操作...")
+            # 使用 self.root.after(0, ...) 将 GUI 相关操作调度回主线程
+            self.stop_refresh_page()
+            self.stop_url_monitoring()
+            self.logger.info("开始执行登录操作 (在独立线程中)...")
             if not self.driver:
-                self.restart_browser()
-                
-            self.start_login_monitoring_running = True
+                self.restart_browser() 
+
             self.login_running = True
 
-            self.click_login_button() # 假设此函数已按之前建议修改，不会因按钮找不到而报错
-            
-            max_retries = 2 # 您可以根据需要调整重试次数
+            self.click_login_button()
+
+            max_retries = 7
             retry_count = 0
-            login_successful_in_retry = False # 标记是否在重试中成功登录
 
             while retry_count < max_retries:
-                time.sleep(2) # 等待页面加载或状态变化
                 self.logger.info(f"登录检查中... (尝试 {retry_count + 1}/{max_retries})")
+                time.sleep(2)
+                # 检查 "Log In" 按钮是否仍然存在
+                login_button_still_present = self.find_login_button()
 
-                cash_element = None
-                cash_value_text = None
-                try:
-                    # 优先尝试直接查找
-                    cash_element = self.driver.find_element(By.XPATH, XPathConfig.CASH_VALUE[0])
-                    if cash_element:
-                       cash_value_text = cash_element.text
-                except NoSuchElementException:
-                    # 如果直接查找失败，再使用带重试的查找
-                    self.logger.info("直接查找CASH_VALUE失败,尝试使用_find_element_with_retry")
-                    found_element = self._find_element_with_retry(
-                        XPathConfig.CASH_VALUE,
-                        timeout=3, # 这个timeout是_find_element_with_retry内部的重试超时
-                        silent=True
-                    )
-                    if found_element:
-                        try:
-                            cash_value_text = found_element.text
-                        except Exception as e_text:
-                            self.logger.warning(f"找到CASH_VALUE元素但获取文本失败: {e_text}")
-                    else:
-                        self.logger.info("_find_element_with_retry未能找到CASH_VALUE元素")
+                if login_button_still_present:
+                    self.click_login_button()
 
-                if cash_value_text is not None and cash_value_text.strip() != "": # 确保获取到的文本非空
-                    self.cash_value = cash_value_text # <<<< 重要：更新实例变量 self.cash_value
-                    self.logger.info(f"\033[34m✅ 登录成功 (获取到余额: {self.cash_value})\033[0m")
+                elif not login_button_still_present:
+                    self.logger.info(f"✅ 找到 \033[34mlogin_button={login_button_still_present}\\033[0m ,登录成功")
+                    
+                    time.sleep(2) 
+                    # 确保在主线程中调用 refresh_page
+                    self.root.after(2000, self.start_url_monitoring)
+                    self.root.after(20000, self.refresh_page)
+                    self.logger.info(f"✅ \033[34m启动页面刷新\033[0m")
                     self.login_running = False
-                    if hasattr(self, 'refresh_page_timer') and self.refresh_page_timer:
-                        self.root.after_cancel(self.refresh_page_timer)
-                    self.refresh_page_timer = self.root.after(5000, self.refresh_page)
-                    self.driver.get(self.target_url) # 导航到目标页面
-                    time.sleep(3) # 登录成功并跳转后，给页面一点加载时间
-                    login_successful_in_retry = True
-                    break # 跳出循环
-                else:
-                    self.logger.info(f"登录检查失败 (未获取到余额文本), 等待2秒后重试 ({retry_count + 1}/{max_retries})")
-                
+                    break 
+                    
                 retry_count += 1
             
-            if not login_successful_in_retry: # 当循环正常结束（即没有被 break 中断）时执行
-                self.logger.warning(f"尝试 {max_retries} 次后登录仍未成功，将再次调用 check_and_handle_login。")
-                # 考虑是否真的要无限递归，或者是否有其他处理机制
-                self.root.after(1000, self.check_and_handle_login) # 延迟后再次尝试，避免快速无限递归
-            
         except Exception as e:
-            self.logger.error(f"登录流程 'check_and_handle_login' 发生严重错误: {str(e)}")
-            self.login_running = False # 确保 login_running 状态被重置
-            # 发生严重错误后，也考虑是否需要延迟后重试
-            self.root.after(5000, self.check_and_handle_login) # 例如5秒后重试
+            self.logger.info(f"❌ 登录流程 'check_and_handle_login' 发生错误: {e}")
 
     def refresh_page(self):
         """定时刷新页面"""
@@ -1618,9 +1623,8 @@ class CryptoTrader:
                         self.logger.error(f"取消旧定时器失败: {str(e)}")
 
                 if self.running and self.driver and not self.trading:
-                    self.driver.refresh()
                     refresh_time = self.refresh_interval / 60000
-                    self.logger.info(f"\033[34m{round(refresh_time, 2)} 分钟后再次刷新\033[0m")      
+                          
                 else:
                     self.logger.info("刷新失败")
                     self.logger.info(f"trading={self.trading}")
@@ -1635,7 +1639,8 @@ class CryptoTrader:
                         self.logger.error(f"取消旧定时器失败")
             finally:
                 self.refresh_page_timer = self.root.after(self.refresh_interval, self.refresh_page)
-            
+                self.logger.info(f"\033[34m{round(refresh_time, 2)} 分钟后再次刷新\033[0m")
+
     def stop_refresh_page(self):
         """停止页面刷新"""
         with self.refresh_page_lock:
@@ -3012,7 +3017,7 @@ class CryptoTrader:
         all_handles = self.driver.window_handles
         
         if len(all_handles) > 1:
-            self.logger.info(f"当前窗口数: {len(all_handles)}，准备关闭多余窗口")
+            #self.logger.info(f"当前窗口数: {len(all_handles)}，准备关闭多余窗口")
             # 保留最后一个窗口，关闭其他所有窗口
             current_handle = all_handles[-1]  # 使用最后一个窗口
             
@@ -3350,9 +3355,7 @@ class CryptoTrader:
                             )
                 
                 self.logger.warning(f"发现 {len(failed_xpaths)} 个 XPath 定位失败，已发送邮件通知")
-            else:
-                self.logger.info("所有 XPath 定位正常")
-        
+            
         except Exception as e:
             self.logger.error(f"监控 XPath 元素时发生错误: {str(e)}")
         finally:
@@ -3375,7 +3378,7 @@ class CryptoTrader:
         # 设置定时器
         selected_coin = self.coin_combobox.get()
         self.root.after(int(wait_time), lambda: self.find_54_coin(selected_coin))
-        self.logger.info(f"\033[34m{round(wait_time_hours,2)}\033[0m小时后,开始自动找币")
+        self.logger.info(f"✅ \033[34m{round(wait_time_hours,2)}\033[0m小时后,开始自动找币")
 
     def find_54_coin(self,coin_type):
         """自动找币"""
@@ -3646,74 +3649,154 @@ class CryptoTrader:
                 self.logger.info(f"\033[34m{round(seconds_until_midnight / 3600,2)}\033[0m小时后再次获取 CASH 值")
     
     def get_binance_zero_time_price(self):
-        """获取币安BTC实时价格,并在中国时区00:00触发"""
+        """获取币安BTC实时价格,并在中国时区00:00触发。此方法在threading.Timer的线程中执行。"""
+        api_data = None
+        coin_for_api = ""
         try:
-            # 获取当前币安BTC价格
-            self.selected_coin = self.coin_combobox.get()
-            coin = self.selected_coin + 'USDT'
-            response = requests.get(f'https://api.binance.com/api/v3/ticker/price?symbol={coin}')
+            # 这部分代码在辅助线程中运行
+            # 1. 获取币种信息（非GUI操作）
+            # 注意：如果self.coin_combobox.get()依赖于GUI线程状态，应在主线程获取或传递参数
+            # 但通常 .get() 是安全的。为确保最新选择，可以在主线程获取并传递，或在更新GUI时重新获取。
+            # 此处，由于是0点价格，假设启动时选定的币种是目标。
+            selected_coin = self.coin_combobox.get() # 获取当前选择的币种
+            coin_for_api = selected_coin + 'USDT'
 
-            if response.status_code == 200:
-                data = response.json()
-                price = round(float(data['price']),3)
-                self.last_coin_price = price
-                self.binance_zero_price_label.config(text=f"${price}")
-                self.logger.info(f"✅ 获取到币安 \033[34m{coin}\033[0m 价格: \033[34m{price}\033[0m")
-                return price
-            else:
-                self.get_binance_zero_time_price()
-            
+            # 2. 执行网络请求
+            response = requests.get(f'https://api.binance.com/api/v3/ticker/price?symbol={coin_for_api}', timeout=5) # 添加超时
+            response.raise_for_status() # 如果状态码不是2xx，则抛出HTTPError
+
+            data = response.json()
+            price = round(float(data['price']), 3)
+            api_data = {"price": price, "coin": coin_for_api, "original_selected_coin": selected_coin}
+            self.logger.info(f"✅ 成功获取到币安 \033[34m{api_data['coin']}\033[0m 价格: \033[34m{api_data['price']}\033[0m")
+
+        except requests.exceptions.Timeout:
+            self.logger.info(f"❌ 获取币安 \033[34m{coin_for_api}\033[0m 价格超时。")
+        except requests.exceptions.HTTPError as http_err:
+            self.logger.info(f"❌ 获取币安 \033[34m{coin_for_api}\033[0m 价格时发生HTTP错误: {http_err}")
+        except requests.exceptions.RequestException as req_err:
+            self.logger.info(f"❌ 获取币安 \033[34m{coin_for_api}\033[0m 价格时发生网络请求错误: {req_err}")
         except Exception as e:
-            self.get_binance_zero_time_price()
+            self.logger.info(f"❌ 获取币安 \033[34m{coin_for_api}\033[0m 价格时发生未知错误: {e}")
+            # 不再在此处直接调用 self.get_binance_zero_time_price()
+            
+        else:
+            # 3. 如果成功获取数据 (即try块没有异常)，则安排GUI更新到主线程
+            if api_data:
+                def update_gui():
+                    # 这部分代码将在主GUI线程中运行
+                    try:
+                        # 更新 last_coin_price 和标签
+                        self.last_coin_price = api_data["price"] # 更新的是获取到的价格
+                        self.binance_zero_price_label.config(text=f"${api_data['price']}")
+                        #self.logger.info(f"✅ GUI已更新 \033[34m{api_data['coin']}\033[0m 零点价格: \033[34m${api_data['price']}\033[0m")
+                    except Exception as e_gui:
+                        self.logger.debug(f"❌ 更新零点价格GUI时出错")
+                
+                self.root.after(0, update_gui)
 
+        # 4. 在 finally 块中重新调度下一次执行 (总是在辅助线程中完成)
         finally:
-            # 计算下一个00:00的时间
             now = datetime.now()
-            tomorrow = now.replace(hour=0, minute=0, second=0, microsecond=0) + timedelta(days=1)
-            seconds_until_midnight = (tomorrow - now).total_seconds()
+            # 计算下一个00:00的时间
+            next_run_time = now.replace(hour=0, minute=0, second=0, microsecond=0)
+            if now >= next_run_time: # 如果当前时间已经过了今天的00:00
+                next_run_time += timedelta(days=1) # 则安排在明天的00:00
+
+            seconds_until_next_run = (next_run_time - now).total_seconds()
 
             # 取消已有的定时器（如果存在）
-            if hasattr(self, 'binance_price_timer') and self.binance_price_timer:
-                self.binance_price_timer.cancel()
+            # 使用不同的属性名存储Timer对象，避免与之前的混淆，例如 self.binance_price_timer_thread
+            if hasattr(self, 'binance_zero_price_timer_thread') and self.binance_zero_price_timer_thread and self.binance_zero_price_timer_thread.is_alive():
+                self.binance_zero_price_timer_thread.cancel()
 
-            # 设置下一次执行的定时器
             if self.running and not self.stop_event.is_set():
-                self.binance_price_timer = threading.Timer(seconds_until_midnight, self.get_binance_zero_time_price)
-                self.binance_price_timer.daemon = True
-                self.binance_price_timer.start()
-                self.logger.info(f"\033[34m{round(seconds_until_midnight / 3600,2)}\033[0m小时后再次获取币安\033[34m{self.selected_coin}USDT\033[0m价格")
+                # 获取下一次执行时将记录的币种，确保日志信息准确
+                coin_for_next_log = self.coin_combobox.get() + 'USDT'
+                self.binance_zero_price_timer_thread = threading.Timer(seconds_until_next_run, self.get_binance_zero_time_price)
+                self.binance_zero_price_timer_thread.daemon = True
+                self.binance_zero_price_timer_thread.start()
+                self.logger.info(f"✅ \033[34m{round(seconds_until_next_run / 3600,2)}\033[0m 小时后重新获取{coin_for_next_log} 零点价格")
     
     def get_now_price(self):
-        """获取当前价格"""
-        # 获取当前币安价格
+        """获取当前价格。此方法在threading.Timer的线程中执行。"""
+        api_data = None
+        coin_for_api = ""
+        current_price_for_calc = None # 用于计算变化率的价格
+
         try:
-            selected_coin = self.coin_combobox.get()
-            coin = selected_coin + 'USDT'
-            response = requests.get(f'https://api.binance.com/api/v3/ticker/price?symbol={coin}')
-            if response.status_code == 200:
-                data = response.json()
-                price = round(float(data['price']),3)
-                binance_rate = ((float(price) - self.last_coin_price) / self.last_coin_price) * 100
-                self.binance_now_price_label.config(text=f"${price}")
-                # 根据 binance_rate 的正负设置颜色
-                if binance_rate >= 0:
-                    rate_color = "#1AAD19"
-                else:
-                    rate_color = "red"
-                self.binance_rate_label.config(text=f"{binance_rate:.2f}%", foreground=rate_color, font=("Arial", 18, "bold"))
-                return price
-           
+            # 这部分代码在辅助线程中运行
+            # 1. 获取币种信息和上一次的价格（非GUI操作）
+            selected_coin = self.coin_combobox.get() # 获取当前选择的币种
+            coin_for_api = selected_coin + 'USDT'
+            
+            # 安全地获取 self.last_coin_price
+            if hasattr(self, 'last_coin_price') and self.last_coin_price is not None:
+                current_price_for_calc = self.last_coin_price
+            else:
+                self.logger.warning(f"线程 {threading.get_ident()}: self.last_coin_price 未定义或为None,无法计算价格变动率。")
+
+            # 2. 执行网络请求
+            response = requests.get(f'https://api.binance.com/api/v3/ticker/price?symbol={coin_for_api}', timeout=5) # 添加超时
+            response.raise_for_status()
+
+            data = response.json()
+            price = round(float(data['price']), 3)
+            
+            binance_rate_text = "--"
+            rate_color = "black" # 默认颜色
+
+            if current_price_for_calc is not None and current_price_for_calc > 0:
+                binance_rate = ((price - current_price_for_calc) / current_price_for_calc) * 100
+                binance_rate_text = f"{binance_rate:.2f}%"
+                rate_color = "#1AAD19" if binance_rate >= 0 else "red"
+            
+            api_data = {
+                "price": price, 
+                "binance_rate_text": binance_rate_text, 
+                "rate_color": rate_color,
+                "coin_for_display": coin_for_api # 用于日志或确认
+            }
+            #self.logger.debug(f"线程 {threading.get_ident()}: 成功获取到币安 {api_data['coin_for_display']} 当前价格: {api_data['price']}")
+
+        except requests.exceptions.Timeout:
+            self.logger.info(f"❌ 获取币安 \033[34m{coin_for_api}\033[0m 当前价格超时。")
+        except requests.exceptions.HTTPError as http_err:
+            self.logger.info(f"❌ 获取币安 \033[34m{coin_for_api}\033[0m 当前价格时发生HTTP错误: {http_err}")
+        except requests.exceptions.RequestException as req_err:
+            self.logger.info(f"❌ 获取币安 \033[34m{coin_for_api}\033[0m 当前价格时发生网络请求错误: {req_err}")
         except Exception as e:
-            pass
+            self.logger.info(f"❌ 获取币安 \033[34m{coin_for_api}\033[0m 当前价格时发生未知错误: {e}")
+            
+        else:
+            # 3. 如果成功获取数据，则安排GUI更新到主线程
+            if api_data:
+                def update_gui():
+                    # 这部分代码将在主GUI线程中运行
+                    try:
+                        self.binance_now_price_label.config(text=f"${api_data['price']}")
+                        self.binance_rate_label.config(
+                            text=api_data['binance_rate_text'], 
+                            foreground=api_data['rate_color'], 
+                            font=("Arial", 18, "bold")
+                        )
+                        # self.logger.debug(f"主线程: GUI已更新 - {api_data['coin_for_display']} 当前价格: ${api_data['price']}")
+                    except Exception as e_gui:
+                        self.logger.debug(f"❌ 更新当前价格GUI时出错")
+
+                self.root.after(0, update_gui)
+        
+        # 4. 在 finally 块中重新调度下一次执行
         finally:
             # 取消已有的定时器（如果存在）
-            if hasattr(self, 'get_now_price_timer') and self.get_now_price_timer:
-                self.get_now_price_timer.cancel()
-            # 设置下一次执行的定时器
+            # 使用不同的属性名存储Timer对象, 例如 self.get_now_price_timer_thread
+            if hasattr(self, 'get_now_price_timer_thread') and self.get_now_price_timer_thread and self.get_now_price_timer_thread.is_alive():
+                self.get_now_price_timer_thread.cancel()
+
             if self.running and not self.stop_event.is_set():
-                self.get_now_price_timer = threading.Timer(20, self.get_now_price)
-                self.get_now_price_timer.daemon = True
-                self.get_now_price_timer.start()
+                self.get_now_price_timer_thread = threading.Timer(10, self.get_now_price) # 每10秒获取一次
+                self.get_now_price_timer_thread.daemon = True
+                self.get_now_price_timer_thread.start()
 
     def _perform_price_comparison(self):
         """执行价格比较"""
