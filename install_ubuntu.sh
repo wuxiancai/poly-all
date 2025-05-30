@@ -33,39 +33,30 @@ sudo apt update
 echo "安装系统依赖..."
 sudo apt install -y software-properties-common apt-transport-https ca-certificates gnupg lsb-release curl wget build-essential
 
-# 添加deadsnakes PPA以获取Python 3.9
-echo "添加Python PPA..."
-sudo add-apt-repository -y ppa:deadsnakes/ppa
-sudo apt update
-
-# 安装 Python 3.9 和相关包
-echo "安装 Python 3.9..."
-sudo apt install -y python3.9 python3.9-venv python3.9-dev python3.9-distutils python3-pip
-sudo apt install -y python3-tk python3.9-tk
-
-# 确保python3.9可用
-sudo update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.9 1
+# 确保安装了 python3-venv 和 python3-pip
+echo "安装 python3-venv 和 python3-pip..."
+sudo apt install -y python3-venv python3-pip python3-tk python3-dev
 
 # 创建虚拟环境
 echo "创建虚拟环境..."
-python3.9 -m venv venv --clear
+python3 -m venv venv --clear
 source venv/bin/activate
 
 # 升级 pip
 echo "升级 pip..."
-python3.9 -m pip install --upgrade pip
+pip install --upgrade pip
 
 # 安装依赖
 echo "安装Python依赖..."
-pip3 install --no-cache-dir selenium
-pip3 install --no-cache-dir pyautogui
-pip3 install --no-cache-dir screeninfo
-pip3 install --no-cache-dir requests
+pip install --no-cache-dir selenium
+pip install --no-cache-dir pyautogui
+pip install --no-cache-dir screeninfo
+pip install --no-cache-dir requests
 
 # 安装GUI相关依赖（Ubuntu特有）
 echo "安装GUI相关依赖..."
-sudo apt install -y python3-xlib scrot python3-dev
-pip3 install --no-cache-dir python3-xlib
+sudo apt install -y python3-xlib scrot
+pip install --no-cache-dir python3-xlib
 
 # 配置环境变量
 echo "配置环境变量..."
@@ -192,16 +183,16 @@ echo "检查关键组件是否正确安装..."
 ERROR_COUNT=0
 ERROR_LIST=""
 
-# 检查 Python 3.9
-if ! command -v python3.9 &> /dev/null; then
+# 检查 Python 3
+if ! command -v python3 &> /dev/null; then
     ERROR_COUNT=$((ERROR_COUNT+1))
-    ERROR_LIST="${ERROR_LIST}\n${RED}[未安装] Python 3.9${NC} - 请运行: sudo apt install -y python3.9 python3.9-venv python3.9-dev python3.9-distutils"
+    ERROR_LIST="${ERROR_LIST}\n${RED}[未安装] Python 3${NC} - 请运行: sudo apt install -y python3 python3-venv python3-dev python3-distutils"
 fi
 
 # 检查 pip
 if ! command -v pip3 &> /dev/null; then
     ERROR_COUNT=$((ERROR_COUNT+1))
-    ERROR_LIST="${ERROR_LIST}\n${RED}[未安装] pip3${NC} - 请运行: sudo apt install -y python3-pip 然后 python3.9 -m pip install --upgrade pip"
+    ERROR_LIST="${ERROR_LIST}\n${RED}[未安装] pip3${NC} - 请运行: sudo apt install -y python3-pip 然后 pip install --upgrade pip"
 fi
 
 # 检查 Chrome
@@ -221,14 +212,14 @@ PACKAGES=("selenium" "pyautogui" "screeninfo" "requests" "python3-xlib")
 for pkg in "${PACKAGES[@]}"; do
     if ! pip3 list | grep -i "$pkg" &> /dev/null; then
         ERROR_COUNT=$((ERROR_COUNT+1))
-        ERROR_LIST="${ERROR_LIST}\n${RED}[未安装] Python包: $pkg${NC} - 请运行: pip3 install --no-cache-dir $pkg"
+        ERROR_LIST="${ERROR_LIST}\n${RED}[未安装] Python包: $pkg${NC} - 请运行: pip install --no-cache-dir $pkg"
     fi
 done
 
 # 检查虚拟环境
 if [ ! -d "venv" ]; then
     ERROR_COUNT=$((ERROR_COUNT+1))
-    ERROR_LIST="${ERROR_LIST}\n${RED}[未创建] Python虚拟环境${NC} - 请运行: python3.9 -m venv venv --clear"
+    ERROR_LIST="${ERROR_LIST}\n${RED}[未创建] Python虚拟环境${NC} - 请运行: python3 -m venv venv --clear"
 fi
 
 # 输出检查结果
