@@ -21,7 +21,7 @@ logs/
 *.tmp
 
 # 配置文件（可能包含敏感信息）
-
+run_trader.py
 ip.txt
 
 # IDE 和编辑器文件
