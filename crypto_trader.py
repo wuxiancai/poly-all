@@ -433,6 +433,9 @@ class CryptoTrader:
         self.url_entry = ttk.Combobox(url_container, font=base_font, width=40)
         self.url_entry.pack(side=tk.LEFT, fill=tk.X, expand=True)
 
+        # 设置URL输入框右对齐
+        self.url_entry.configure(justify='right')
+        
         # 从配置文件加载历史记录
         if 'url_history' not in self.config:
             self.config['url_history'] = []
