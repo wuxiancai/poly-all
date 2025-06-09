@@ -1,0 +1,76 @@
+# Python 缓存文件
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# 虚拟环境
+venv/
+env/
+ENV/
+.venv/
+.env/
+
+# 日志文件
+logs/
+*.log
+
+# 备份文件
+*.bak
+*.backup
+*.tmp
+
+# 配置文件（可能包含敏感信息）
+
+ip.txt
+
+# IDE 和编辑器文件
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# macOS 系统文件
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# 临时文件
+*.tmp
+*.temp
+
+# 编译文件
+*.pyc
+*.pyo
+*.pyd
+
+# 分发/打包文件
+build/
+dist/
+*.egg-info/
+
+# 测试覆盖率报告
+htmlcov/
+.coverage
+.pytest_cache/
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# 环境变量文件
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# 数据库文件
+*.db
+*.sqlite
+*.sqlite3
+
+# 其他临时文件
+*.pid
+*.seed
+*.pid.lock
