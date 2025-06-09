@@ -74,7 +74,7 @@ PROJECT_ROOT="$(cd "$(dirname "$0")" && pwd)"
 echo "检查并安装 Chrome..."
 
 # 检查 Chrome 是否已安装（只检查项目根目录）
-if [ -x "$PROJECT_ROOT/google-chrome" ] || [ -x "$PROJECT_ROOT/chrome" ]; then
+if [ -x "~/google-chrome" ] || [ -x "~/chrome" ]; then
     echo "${GREEN}Chrome 已安装${NC}"
     CHROME_INSTALLED=true
 else
@@ -83,7 +83,7 @@ else
 fi
 
 # 检查 ChromeDriver 是否已安装（只检查项目根目录）
-if [ -x "$PROJECT_ROOT/chromedriver" ]; then
+if [ -x "~/chromedriver" ]; then
     echo "${GREEN}ChromeDriver 已安装${NC}"
     CHROMEDRIVER_INSTALLED=true
 else
@@ -97,7 +97,7 @@ if [ "$CHROME_INSTALLED" = false ]; then
     cd "$PROJECT_ROOT"
     wget -O chrome.deb "https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb"
     dpkg-deb -x chrome.deb .
-    ln -sf ./opt/google/chrome/google-chrome ./google-chrome
+    ln -sf ./opt/google/chrome/google-chrome ~/google-chrome
     rm chrome.deb
     cd -
 fi
@@ -112,8 +112,9 @@ if [ "$CHROMEDRIVER_INSTALLED" = false ]; then
         DRIVER_VERSION=$(curl -s "https://chromedriver.storage.googleapis.com/LATEST_RELEASE")
     fi
     wget -O chromedriver.zip "https://chromedriver.storage.googleapis.com/${DRIVER_VERSION}/chromedriver_linux64.zip"
-    unzip -o chromedriver.zip -d .
-    chmod +x ./chromedriver
+    unzip -o chromedriver.zip -d ~/google-chrome
+    ln -sf./google-chrome/chromedriver ~/chromedriver
+    chmod +x ~/google-chrome/chromedriver
     rm chromedriver.zip
     cd -
 fi
