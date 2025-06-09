@@ -83,9 +83,9 @@ install_driver() {
             echo -e "${GREEN}成功下载 chromedriver ${TRY_VERSION}${NC}"
             rm -rf chromedriver-linux64*
             unzip -qo chromedriver.zip
-            mv chromedriver-linux64/chromedriver "$SCRIPT_DIR/chromedriver"
-            chmod +x "$SCRIPT_DIR/chromedriver"
-            echo -e "${GREEN}安装成功: $("$SCRIPT_DIR/chromedriver" --version)${NC}"
+            mv chromedriver-linux64/chromedriver "~/chromedriver"
+            chmod +x "~/chromedriver"
+            echo -e "${GREEN}安装成功: $("~/chromedriver" --version)${NC}"
             cd "$SCRIPT_DIR"
             return 0
         fi
@@ -127,8 +127,8 @@ echo -e "${YELLOW}使用 XAUTHORITY=$XAUTHORITY${NC}"
 
 # 启动 Chrome（调试端口）- 只用项目根目录下的 chrome
 echo -e "${GREEN}启动 Chrome 中...${NC}"
-if [ -x "$SCRIPT_DIR/google-chrome" ]; then
-    "$SCRIPT_DIR/google-chrome" \
+if [ -x "~/google-chrome" ]; then
+    "~/google-chrome" \
         --remote-debugging-port=9222 \
         --no-sandbox \
         --disable-gpu \
@@ -146,7 +146,7 @@ if [ -x "$SCRIPT_DIR/google-chrome" ]; then
         --disable-renderer-backgrounding \
         --disable-features=TranslateUI,BlinkGenPropertyTrees,SitePerProcess,IsolateOrigins \
         --noerrdialogs \
-        --user-data-dir="$SCRIPT_DIR/ChromeDebug" \
+        --user-data-dir="~/ChromeDebug" \
         about:blank
 else
     echo -e "${RED}Chrome 未找到${NC}"
