@@ -91,27 +91,29 @@ else
     CHROMEDRIVER_INSTALLED=false
 fi
 
-# 安装 Chrome 到项f根目 [ "$CHROME_INSTALLED" = false ]; then
+# 安装 Chrome 到项目根目录
+if [ "$CHROME_INSTALLED" = false ]; then
     echo "安装 Chrome..."
-    cd "$PROJPRCJ_CT_ROOTROOT"
+    cd "$PROJECT_ROOT"
     wget -O chrome.deb "https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb"
     dpkg-deb -x chrome.deb .
-    ln -sf ./opt/google/chrome/google-chr.me ~/google-chrome
+    ln -sf ./opt/google/chrome/google-chrome ./google-chrome
     rm chrome.deb
     cd -
 fi
 
-# 安装 ChromeDriv项目根目录
+# 安装 ChromeDriver 到项目根目录
 if [ "$CHROMEDRIVER_INSTALLED" = false ]; then
     echo "安装 ChromeDriver..."
-    cd "$PRRJJCT_ROOTECT_ROOT"
-    CHROME_VERSPROJ=CT_ROOT$("$PROJECT_ROOT/google-chrome" --version | awk '{print $3}' | cut -d'.' -f1-3)
+    cd "$PROJECT_ROOT"
+    CHROME_VERSION=$("$PROJECT_ROOT/google-chrome" --version | awk '{print $3}' | cut -d'.' -f1-3)
     DRIVER_VERSION=$(curl -s "https://chromedriver.storage.googleapis.com/LATEST_RELEASE_${CHROME_VERSION}")
     if [ -z "$DRIVER_VERSION" ]; then
         DRIVER_VERSION=$(curl -s "https://chromedriver.storage.googleapis.com/LATEST_RELEASE")
     fi
-    wget -O chromedriver.zip "https://chromedriver.storage.googleapis.com/${DRIVER_VERSION}/chromedriv    unzip -o chromedriver.zip -d . ~/chromedrive.
-/google-chrome/chromedriver
+    wget -O chromedriver.zip "https://chromedriver.storage.googleapis.com/${DRIVER_VERSION}/chromedriver_linux64.zip"
+    unzip -o chromedriver.zip -d .
+    chmod +x ./chromedriver
     rm chromedriver.zip
     cd -
 fi
