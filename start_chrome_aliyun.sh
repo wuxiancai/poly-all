@@ -146,7 +146,7 @@ if [ -x "$SCRIPT_DIR/google-chrome" ]; then
         --disable-renderer-backgrounding \
         --disable-features=TranslateUI,BlinkGenPropertyTrees,SitePerProcess,IsolateOrigins \
         --noerrdialogs \
-        --user-data-dir="$SCRIPT_DIR/ChromeDebug" \
+        --user-data-dir="$HOME/ChromeDebug" \
         about:blank
 else
     echo -e "${RED}Chrome 未找到${NC}"
