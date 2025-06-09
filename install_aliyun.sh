@@ -74,7 +74,7 @@ PROJECT_ROOT="$(cd "$(dirname "$0")" && pwd)"
 echo "检查并安装 Chrome..."
 
 # 检查 Chrome 是否已安装（只检查项目根目录）
-if [ -x "~/google-chrome" ] || [ -x "~/chrome" ]; then
+if [ -x "$PROJECT_ROOT/google-chrome" ] || [ -x "$PROJECT_ROOT/chrome" ]; then
     echo "${GREEN}Chrome 已安装${NC}"
     CHROME_INSTALLED=true
 else
@@ -83,7 +83,7 @@ else
 fi
 
 # 检查 ChromeDriver 是否已安装（只检查项目根目录）
-if [ -x "~/chromedriver" ]; then
+if [ -x "$PROJECT_ROOT/chromedriver" ]; then
     echo "${GREEN}ChromeDriver 已安装${NC}"
     CHROMEDRIVER_INSTALLED=true
 else
@@ -91,30 +91,27 @@ else
     CHROMEDRIVER_INSTALLED=false
 fi
 
-# 安装 Chrome 到 $HOME 目录
-if [ "$CHROME_INSTALLED" = false ]; then
+# 安装 Chrome 到项f根目 [ "$CHROME_INSTALLED" = false ]; then
     echo "安装 Chrome..."
-    cd "$HOME"
+    cd "$PROJPRCJ_CT_ROOTROOT"
     wget -O chrome.deb "https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb"
     dpkg-deb -x chrome.deb .
-    ln -sf ./opt/google/chrome/google-chrome ~/google-chrome
+    ln -sf ./opt/google/chrome/google-chr.me ~/google-chrome
     rm chrome.deb
     cd -
 fi
 
-# 安装 ChromeDriver 到 $HOME 目录
+# 安装 ChromeDriv项目根目录
 if [ "$CHROMEDRIVER_INSTALLED" = false ]; then
     echo "安装 ChromeDriver..."
-    cd "$HOME"
-    CHROME_VERSION=$("$HOME/google-chrome" --version | awk '{print $3}' | cut -d'.' -f1-3)
+    cd "$PRRJJCT_ROOTECT_ROOT"
+    CHROME_VERSPROJ=CT_ROOT$("$PROJECT_ROOT/google-chrome" --version | awk '{print $3}' | cut -d'.' -f1-3)
     DRIVER_VERSION=$(curl -s "https://chromedriver.storage.googleapis.com/LATEST_RELEASE_${CHROME_VERSION}")
     if [ -z "$DRIVER_VERSION" ]; then
         DRIVER_VERSION=$(curl -s "https://chromedriver.storage.googleapis.com/LATEST_RELEASE")
     fi
-    wget -O chromedriver.zip "https://chromedriver.storage.googleapis.com/${DRIVER_VERSION}/chromedriver_linux64.zip"
-    unzip -o chromedriver.zip -d ~/google-chrome
-    ln -sf ./google-chrome/chromedriver ~/chromedriver
-    chmod +x ~/google-chrome/chromedriver
+    wget -O chromedriver.zip "https://chromedriver.storage.googleapis.com/${DRIVER_VERSION}/chromedriv    unzip -o chromedriver.zip -d . ~/chromedrive.
+/google-chrome/chromedriver
     rm chromedriver.zip
     cd -
 fi
